@@ -6,7 +6,7 @@
 
 namespace agrb
 {
-    // Сonfiguration settings for a Vulkan graphics pipeline.
+    // Configuration settings for a Vulkan graphics pipeline.
     struct pipeline_config_base
     {
         acul::vector<vk::PipelineShaderStageCreateInfo> shader_stages;

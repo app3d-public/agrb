@@ -1,4 +1,9 @@
 cmake_minimum_required(VERSION 3.17)
+
+if (NOT DEFINED ACBT_LOADED)
+    include(cmake/utils.cmake)
+endif()
+
 project(agrb
     VERSION 0.0.1
     LANGUAGES CXX C
@@ -14,6 +19,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/3rd-party/vma/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if(PROJECT_IS_TOP_LEVEL)
+    add_subdirectory(modules/acul)
+endif()
+
 target_link_libraries(${PROJECT_NAME} PRIVATE acul)
 
 if(WIN32)

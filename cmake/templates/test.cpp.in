@@ -1,7 +1,0 @@
-void test_@TEST_NAME@();
-
-int main()
-{
-    test_@TEST_NAME@();
-    return 0;
-}
