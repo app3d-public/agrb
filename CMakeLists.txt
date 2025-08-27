@@ -1,13 +1,17 @@
 cmake_minimum_required(VERSION 3.17)
 
-if (NOT DEFINED ACBT_LOADED)
-    include(cmake/utils.cmake)
+if(NOT DEFINED ACBT_PROJECT_LOADED)
+    include(cmake/project.cmake)
 endif()
 
 project(agrb
     VERSION 0.0.1
     LANGUAGES CXX C
     DESCRIPTION "App3d Graphics Rendering Backend")
+
+if(NOT DEFINED ACBT_LOADED)
+    include(cmake/utils.cmake)
+endif()
 
 add_files(${PROJECT_NAME} RECURSE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/vk_mem_alloc.cpp PROPERTIES
