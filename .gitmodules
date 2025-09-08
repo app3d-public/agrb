@@ -1,9 +1,9 @@
 [submodule "modules/acul"]
 	path = modules/acul
-	url = git@git.dev.lan:app3d/acul.git
+	url = ../acul.git
 [submodule "modules/3rd-party/vma"]
 	path = modules/3rd-party/vma
 	url = git@github.com:GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
 [submodule "cmake"]
 	path = cmake
-	url = git@git.dev.lan:app3d/acbt.git
+	url = ../acbt.git

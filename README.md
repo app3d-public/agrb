@@ -12,8 +12,8 @@ These are system libraries that must be available at build time:
 ### Bundled submodules
 The following dependencies are included as git submodules and must be checked out when cloning:
 
-- [acbt](https://git.homedatasrv.ru/app3d/acbt)
-- [acul](https://git.homedatasrv.ru/app3d/acul)
+- [acbt](https://github.com/app3d-public/acbt)
+- [acul](https://github.com/app3d-public/acul)
 - [vma](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 ### Supported compilers:
