@@ -60,8 +60,6 @@ target_compile_options(${PROJECT_NAME} PRIVATE -fvisibility-inlines-hidden)
 
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED YES
     CXX_EXTENSIONS YES
 )
 

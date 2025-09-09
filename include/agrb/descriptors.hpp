@@ -116,7 +116,7 @@ namespace agrb
             /// @return Shared descriptor pool wrapper
             acul::shared_ptr<descriptor_pool> build(device &device) const
             {
-                return make_shared<descriptor_pool>(device, _max_sets, _pool_flags, _pool_sizes);
+                return acul::make_shared<descriptor_pool>(device, _max_sets, _pool_flags, _pool_sizes);
             }
 
         private:
