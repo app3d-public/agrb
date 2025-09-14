@@ -50,18 +50,18 @@ void test_utils()
 
     assert(create_image(img_info, image, alloc, env.d.allocator));
 
-    // Transition: Undefined → TransferDstOptimal
+    // Transition: Undefined -> TransferDstOptimal
     assert(transition_image_layout(env.d, image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
                                    1) == vk::Result::eSuccess);
 
-    // Copy buffer → image
+    // Copy buffer -> image
     assert(copy_buffer_to_image(env.d, src.vk_buffer, image, 1, {width, height, 1}) == vk::Result::eSuccess);
 
-    // Transition: TransferDstOptimal → TransferSrcOptimal
+    // Transition: TransferDstOptimal -> TransferSrcOptimal
     assert(transition_image_layout(env.d, image, vk::ImageLayout::eTransferDstOptimal,
                                    vk::ImageLayout::eTransferSrcOptimal, 1) == vk::Result::eSuccess);
 
-    // Copy image → buffer
+    // Copy image -> buffer
     copy_image_to_buffer(env.d, dst.vk_buffer, image, {width, height}, 1);
 
     // Clear

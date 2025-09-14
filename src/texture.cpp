@@ -209,7 +209,6 @@ namespace agrb
             LOG_ERROR("Failed to create sampler");
             return false;
         }
-        acul::release(pixels);
         return true;
     }
 } // namespace agrb

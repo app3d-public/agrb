@@ -15,6 +15,18 @@ namespace agrb
         vk::Extent3D image_extent;
     };
 
+    inline void swap(texture &a, texture &b)
+    {
+        std::swap(a.image, b.image);
+        std::swap(a.image_view, b.image_view);
+        std::swap(a.sampler, b.sampler);
+        std::swap(a.allocation, b.allocation);
+        std::swap(a.mip_levels, b.mip_levels);
+        std::swap(a.format, b.format);
+        std::swap(a.size, b.size);
+        std::swap(a.image_extent, b.image_extent);
+    }
+
     APPLIB_API VmaMemoryUsage get_texture_memory_usage(vk::ImageCreateInfo image_info, device &device,
                                                        vk::PhysicalDeviceMemoryProperties memory_properties);
 

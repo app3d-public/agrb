@@ -67,3 +67,7 @@ if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
+
+if(WIN32)
+    gen_manifest_lib(lib${PROJECT_NAME} ${PROJECT_VERSION})
+endif()

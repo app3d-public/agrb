@@ -96,7 +96,7 @@ namespace agrb
     inline void move_to_buffer(buffer &buffer, void *data, vk::DeviceSize size = VK_WHOLE_SIZE,
                                vk::DeviceSize offset = 0)
     {
-        assert(buffer.mapped);
+        assert(buffer.mapped && data);
         if (size == VK_WHOLE_SIZE)
             memmove(buffer.mapped, data, buffer.buffer_size);
         else
