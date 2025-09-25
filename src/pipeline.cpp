@@ -96,4 +96,24 @@ namespace agrb
             .setBasePipelineHandle(nullptr);
         return true;
     }
+
+    APPLIB_API void
+    configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
+                                        agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
+                                        const acul::io::path &shader_path)
+    {
+        artifact.config.pipeline_layout = layout;
+        shaders.emplace_back(shader_path);
+        auto &comp = shaders.back();
+        comp.load(device);
+        artifact.config.shader_stages.emplace_back();
+        artifact.config.shader_stages.back()
+            .setStage(vk::ShaderStageFlagBits::eCompute)
+            .setModule(comp.module)
+            .setPName("main");
+        artifact.create_info.setStage(artifact.config.shader_stages.back())
+            .setBasePipelineIndex(-1)
+            .setBasePipelineHandle(nullptr)
+            .setLayout(artifact.config.pipeline_layout);
+    }
 } // namespace agrb

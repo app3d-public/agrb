@@ -235,4 +235,9 @@ namespace agrb
      */
     APPLIB_API bool prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
                                                    shader_module &vert, shader_module &frag, device &device);
+
+    APPLIB_API void
+    configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
+                                        agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
+                                        const acul::io::path &shader_path);
 } // namespace agrb
