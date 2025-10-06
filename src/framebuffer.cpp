@@ -98,17 +98,14 @@ namespace agrb
         {
             fb_image_slot &image = fb_attachments.images[i];
             vk::ImageView attachments[fb_attachments.attachment_count];
-            for (int attachment_id = 0; attachment_id < fb_attachments.attachment_count;)
+            int out = 0;
+            for (int slot = 0; slot < static_cast<int>(image.attachments.size()); ++slot)
             {
-                auto &attachment = image.attachments[attachment_id];
-                if (attachment.view_count == 1)
-                    attachments[attachment_id++] = attachment.view;
+                auto &att = image.attachments[slot];
+                if (att.view_count == 1)
+                    attachments[out++] = att.view;
                 else
-                {
-                    for (int view_id = 0; view_id < attachment.view_count; ++view_id)
-                        attachments[attachment_id + view_id] = attachment.views[view_id];
-                    attachment_id += attachment.view_count;
-                }
+                    for (int v = 0; v < att.view_count; ++v) attachments[out++] = att.views[v];
             }
             vk::FramebufferCreateInfo framebuffer_info;
             framebuffer_info.setRenderPass(fb.render_pass)
