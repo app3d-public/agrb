@@ -102,10 +102,10 @@ namespace agrb
             for (int slot = 0; slot < static_cast<int>(image.attachments.size()); ++slot)
             {
                 auto &att = image.attachments[slot];
-                if (att.view_count == 1)
-                    attachments[out++] = att.view;
-                else
+                if (att.view_count > 1)
                     for (int v = 0; v < att.view_count; ++v) attachments[out++] = att.views[v];
+                else
+                    attachments[out++] = att.view;
             }
             vk::FramebufferCreateInfo framebuffer_info;
             framebuffer_info.setRenderPass(fb.render_pass)

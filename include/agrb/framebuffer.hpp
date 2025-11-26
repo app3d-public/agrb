@@ -26,7 +26,7 @@ namespace agrb
     {
         if (image.view_count == 1)
             dev.vk_device.destroyImageView(image.view, nullptr, dev.loader);
-        else
+        else if (image.view_count > 1)
         {
             for (int i = 0; i < image.view_count; i++)
                 dev.vk_device.destroyImageView(image.views[i], nullptr, dev.loader);
@@ -59,6 +59,7 @@ namespace agrb
 
     inline void destroy_fb_attachments(fb_attachments *attachments, device &dev)
     {
+        if (!attachments) return;
         for (u32 i = 0; i < attachments->image_count; i++) destroy_fb_image_slot(attachments->images[i], dev);
         acul::release(attachments);
     }
