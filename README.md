@@ -25,7 +25,6 @@ The following dependencies are included as git submodules and must be checked ou
 - Microsoft Windows
 
 ### Cmake options:
-- `USE_ASAN`: Enable address sanitizer
 - `BUILD_TESTS`: Enable testing
 - `ENABLE_COVERAGE`: Enable code coverage
 
