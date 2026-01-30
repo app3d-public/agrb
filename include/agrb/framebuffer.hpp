@@ -1,50 +1,37 @@
 #pragma once
+#include <acul/memory/paos.hpp>
 #include "device.hpp"
 
 namespace agrb
 {
-    namespace defaults
-    {
-        constexpr vk::ClearValue clear_value = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
-        constexpr vk::ClearValue clear_value_empty = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 0.0f));
-        constexpr vk::ClearValue clear_value_stencil = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
-    } // namespace defaults
-
     struct fb_image
     {
         vk::Image image;
         VmaAllocation memory;
-        u32 view_count = 1;
-        union
-        {
-            vk::ImageView *views;
-            vk::ImageView view;
-        };
+        acul::paos<vk::ImageView> view_group;
+
+        vk::ImageView &get_view(u32 view_id) { return view_group[view_id]; }
+        vk::ImageView &get_view() { return view_group.value(); }
     };
 
     inline void destroy_fb_image(fb_image &image, device &dev)
     {
-        if (image.view_count == 1)
-            dev.vk_device.destroyImageView(image.view, nullptr, dev.loader);
-        else if (image.view_count > 1)
-        {
-            for (int i = 0; i < image.view_count; i++)
-                dev.vk_device.destroyImageView(image.views[i], nullptr, dev.loader);
-            acul::release(image.views);
-        }
+        for (const auto &view : image.view_group) dev.vk_device.destroyImageView(view, nullptr, dev.loader);
+        image.view_group.deallocate();
         if (image.image) vmaDestroyImage(dev.allocator, image.image, image.memory);
     }
 
     struct fb_image_slot
     {
         acul::vector<fb_image> attachments;
-        vk::Framebuffer framebuffer;
+        acul::paos<vk::Framebuffer> fb_group;
     };
 
     inline void destroy_fb_image_slot(fb_image_slot &slot, device &dev)
     {
         for (auto &image : slot.attachments) destroy_fb_image(image, dev);
-        if (slot.framebuffer) dev.vk_device.destroyFramebuffer(slot.framebuffer, nullptr, dev.loader);
+        for (const auto &fb : slot.fb_group) dev.vk_device.destroyFramebuffer(fb, nullptr, dev.loader);
+        slot.fb_group.deallocate();
     }
 
     struct fb_attachments
@@ -66,14 +53,22 @@ namespace agrb
 
     struct framebuffer
     {
-        vk::RenderPass render_pass = nullptr;
+        acul::paos<vk::RenderPass> rp_group;
         vk::ClearValue *clear_values = nullptr;
         fb_attachments *attachments = nullptr;
+
+        vk::RenderPass get_rp(u32 rp_id) const { return rp_group[rp_id]; }
+        vk::RenderPass get_rp() const { return rp_group.value(); }
+
+        vk::Framebuffer get_fb(u32 frame_id, u32 fb_id) const { return attachments->images[frame_id].fb_group[fb_id]; }
+        vk::Framebuffer get_fb(u32 frame_id) const { return attachments->images[frame_id].fb_group.value(); }
     };
 
     inline void destroy_framebuffer(framebuffer &fb, device &dev)
     {
-        dev.vk_device.destroyRenderPass(fb.render_pass, nullptr, dev.loader);
+        for (const auto &render_pass : fb.rp_group)
+            if (render_pass) dev.vk_device.destroyRenderPass(render_pass, nullptr, dev.loader);
+        fb.rp_group.deallocate();
         acul::release(fb.clear_values);
         destroy_fb_attachments(fb.attachments, dev);
     }
@@ -119,17 +114,16 @@ namespace agrb
         dev.vk_device.destroySwapchainKHR(swapchain, nullptr, dev.loader);
     }
 
-    APPLIB_API bool create_fb_handles(framebuffer &fb, device &dev);
+    APPLIB_API bool create_fb_handles(framebuffer *fb, device &dev);
 
-    inline bool create_fb_multi_image_view(fb_image &fb_image, u32 view_count, vk::ImageViewCreateInfo &view_info,
-                                           device &dev)
+    inline bool create_fb_multi_image_view(fb_image &fb_image, vk::ImageViewCreateInfo &view_info, device &dev)
     {
-        fb_image.view_count = view_count;
-        for (int i = 0; i < view_count; i++)
+        assert(fb_image.view_group.size() > 0);
+        int i = 0;
+        for (auto &view : fb_image.view_group)
         {
-            view_info.subresourceRange.baseArrayLayer = i;
-            if (dev.vk_device.createImageView(&view_info, nullptr, &fb_image.views[i], dev.loader) !=
-                vk::Result::eSuccess)
+            view_info.subresourceRange.baseArrayLayer = i++;
+            if (dev.vk_device.createImageView(&view_info, nullptr, &view, dev.loader) != vk::Result::eSuccess)
                 return false;
         }
         return true;

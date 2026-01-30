@@ -6,6 +6,7 @@ using namespace agrb;
 
 void test_utils()
 {
+    init_library();
     Enviroment env;
     init_environment(env);
 
@@ -13,16 +14,13 @@ void test_utils()
     const vk::DeviceSize image_size = width * height * pixel_size;
 
     buffer src, dst;
+    auto create_info = make_alloc_info(VMA_MEMORY_USAGE_GPU_ONLY, {}, vk::MemoryPropertyFlagBits::eDeviceLocal, 0.5f);
     for (buffer *b : {&src, &dst})
     {
         b->instance_count = 1;
-        b->vk_usage_flags = vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst;
-        b->vma_usage_flags = VMA_MEMORY_USAGE_GPU_ONLY;
-        b->memory_property_flags = vk::MemoryPropertyFlagBits::eDeviceLocal;
-        b->priority = 0.5f;
-
         construct_buffer(*b, image_size);
-        assert(allocate_buffer(*b, env.d));
+        assert(allocate_buffer(*b, create_info,
+                               vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst, env.d));
     }
 
     // copy_buffer
@@ -36,19 +34,19 @@ void test_utils()
     vk::Image image;
     VmaAllocation alloc;
 
-    vk::ImageCreateInfo img_info{};
-    img_info.imageType = vk::ImageType::e2D;
-    img_info.extent = vk::Extent3D{width, height, 1};
-    img_info.mipLevels = 1;
-    img_info.arrayLayers = 1;
-    img_info.format = vk::Format::eR8G8B8A8Unorm;
-    img_info.tiling = vk::ImageTiling::eOptimal;
-    img_info.initialLayout = vk::ImageLayout::eUndefined;
-    img_info.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
-    img_info.sharingMode = vk::SharingMode::eExclusive;
-    img_info.samples = vk::SampleCountFlagBits::e1;
+    vk::ImageCreateInfo image_info{};
+    image_info.imageType = vk::ImageType::e2D;
+    image_info.extent = vk::Extent3D{width, height, 1};
+    image_info.mipLevels = 1;
+    image_info.arrayLayers = 1;
+    image_info.format = vk::Format::eR8G8B8A8Unorm;
+    image_info.tiling = vk::ImageTiling::eOptimal;
+    image_info.initialLayout = vk::ImageLayout::eUndefined;
+    image_info.usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eTransferSrc;
+    image_info.sharingMode = vk::SharingMode::eExclusive;
+    image_info.samples = vk::SampleCountFlagBits::e1;
 
-    assert(create_image(img_info, image, alloc, env.d.allocator));
+    assert(create_image(image_info, image, alloc, env.d.allocator, create_info));
 
     // Transition: Undefined -> TransferDstOptimal
     assert(transition_image_layout(env.d, image, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
@@ -69,4 +67,5 @@ void test_utils()
     destroy_buffer(dst, env.d);
     env.d.vk_device.destroyImage(image, nullptr, env.d.loader);
     vmaFreeMemory(env.d.allocator, alloc);
+    destroy_library();
 }

@@ -7,11 +7,6 @@
 
 namespace agrb
 {
-    namespace internal
-    {
-        device_library libgpu;
-    }
-
     struct device_initializer
     {
         vk::Device &device;
@@ -37,7 +32,7 @@ namespace agrb
               allocator(device.allocator),
               create_ctx(create_ctx),
               runtime_data(*create_ctx->runtime_data),
-              loader(internal::libgpu.dispatch_loader)
+              loader(detail::g_devlib->dispatch_loader)
         {
         }
 
@@ -81,12 +76,10 @@ namespace agrb
     {
         if (!device.vk_device) return;
         if (device.allocator) vmaDestroyAllocator(device.allocator);
-        LOG_INFO("Destroying vk:device");
         device.vk_device.destroy(nullptr, device.loader);
 #ifndef NDEBUG
         device.instance.destroyDebugUtilsMessengerEXT(device.debug_messenger, nullptr, device.loader);
 #endif
-        LOG_INFO("Destroying vk:instance");
         device.instance.destroy(nullptr, device.loader);
     }
 
@@ -95,9 +88,6 @@ namespace agrb
     void device_initializer::init(const acul::string &app_name, u32 version)
     {
         create_instance(app_name, version);
-#ifndef NDEBUG
-        setup_debug_messenger();
-#endif
         if (create_ctx->present_ctx)
         {
             if (create_ctx->present_ctx->create_surface(instance, surface, loader) != vk::Result::eSuccess)
@@ -218,7 +208,6 @@ namespace agrb
 
     void device_initializer::pick_physical_device()
     {
-        LOG_INFO("Searching physical device");
         acul::vector<const char *> extensions_optional;
         acul::hashset<acul::string> extensions;
         auto &queues = runtime_data.queues;
@@ -226,7 +215,7 @@ namespace agrb
         std::optional<u32> indices[DEVICE_QUEUE_COUNT];
         if (create_ctx->ph_selector)
         {
-            auto *device = create_ctx->ph_selector->select(devices);
+            auto *device = create_ctx->ph_selector->request(devices);
             if (device && validate_physical_device(*device, extensions, indices))
             {
                 physical_device = *device;
@@ -234,9 +223,10 @@ namespace agrb
                     get_supported_opt_ext(physical_device, extensions, create_ctx->device_extensions_optional);
                 runtime_data.properties2.pNext = create_ctx->device_physical_next;
                 runtime_data.properties2.properties = physical_device.getProperties(loader);
+                create_ctx->ph_selector->response(true);
             }
             else
-                LOG_WARN("Failed to validate device by provided info. Searching for another one.");
+                create_ctx->ph_selector->response(false);
         }
 
         if (!physical_device)
@@ -264,7 +254,6 @@ namespace agrb
         queues.graphics.family_id = indices[DEVICE_QUEUE_GRAPHICS];
         queues.present.family_id = indices[DEVICE_QUEUE_PRESENT];
         queues.compute.family_id = indices[DEVICE_QUEUE_COMPUTE];
-        LOG_INFO("Using: %s", static_cast<char *>(runtime_data.properties2.properties.deviceName));
         for (auto *extension : extensions_optional) runtime_data._extensions.emplace(extension);
 
         runtime_data.memory_properties = physical_device.getMemoryProperties(loader);
@@ -334,7 +323,6 @@ namespace agrb
 
     void device_initializer::create_logical_device()
     {
-        LOG_INFO("Creating logical device");
         acul::vector<vk::DeviceQueueCreateInfo> queue_create_infos;
         auto &queues = runtime_data.queues;
         assert(queues.graphics.family_id.has_value() && queues.compute.family_id.has_value());
@@ -343,7 +331,6 @@ namespace agrb
         f32 queue_priority = 1.0f;
         for (u32 queue_family : unique_queue_families)
             queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), queue_family, 1, &queue_priority);
-        for (const auto &extension : using_extensitions) LOG_INFO("Enabling Vulkan extension: %s", extension);
 
         vk::DeviceCreateInfo create_info;
         create_info.setQueueCreateInfoCount(static_cast<u32>(queue_create_infos.size()))
@@ -380,62 +367,25 @@ namespace agrb
     }
 
 #ifndef NDEBUG
-    static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
-                                                         vk::DebugUtilsMessageTypeFlagsEXT type,
-                                                         const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                                         void *pUserData)
-    {
-        switch (severity)
-        {
-            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose:
-                LOG_DEBUG("%s", pCallbackData->pMessage);
-                break;
-            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
-                LOG_INFO("%s", pCallbackData->pMessage);
-                break;
-            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
-                LOG_WARN("%s", pCallbackData->pMessage);
-                break;
-            case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
-                LOG_ERROR("%s", pCallbackData->pMessage);
-                break;
-            default:
-                break;
-        }
-        return VK_FALSE;
-    }
-
-    void populate_debug_messenger_create_info(vk::DebugUtilsMessengerCreateInfoEXT &createInfo)
-    {
-        createInfo = vk::DebugUtilsMessengerCreateInfoEXT();
-        createInfo.messageSeverity =
-            vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-        createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-                                 vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-                                 vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
-        createInfo.pfnUserCallback = reinterpret_cast<decltype(createInfo.pfnUserCallback)>(debug_callback);
-    }
-
     void device_initializer::setup_debug_messenger()
     {
-        LOG_DEBUG("Setting up debug messenger");
-        vk::DebugUtilsMessengerCreateInfoEXT create_info;
-        populate_debug_messenger_create_info(create_info);
+        vk::DebugUtilsMessengerCreateInfoEXT create_info{};
+        create_ctx->debug_configurator(create_info);
         debug_messenger = instance.createDebugUtilsMessengerEXT(create_info, nullptr, loader);
     }
 #endif
 
-    void device_initializer::create_instance(const acul::string &appName, u32 version)
+    void device_initializer::create_instance(const acul::string &app_name, u32 version)
     {
-        LOG_INFO("Creating Vulkan instance");
-        if (!internal::libgpu.vklib.success()) throw acul::runtime_error("Failed to load Vulkan library");
-        loader.init(internal::libgpu.vklib.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+        auto &vklib = detail::g_devlib->vklib;
+        if (!vklib.success()) throw acul::runtime_error("Failed to load Vulkan library");
+        loader.init(vklib.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
 #ifndef NDEBUG
         if (!check_validation_layers_support(create_ctx->validation_layers, loader))
             throw acul::runtime_error("Validation layers requested, but not available!");
 #endif
         vk::ApplicationInfo app_info;
-        app_info.setPApplicationName(appName.c_str())
+        app_info.setPApplicationName(app_name.c_str())
             .setApplicationVersion(version)
             .setPEngineName("No engine")
             .setEngineVersion(1)
@@ -452,16 +402,18 @@ namespace agrb
             .setPpEnabledExtensionNames(extensions.data());
 
 #ifndef NDEBUG
-        vk::DebugUtilsMessengerCreateInfoEXT debug_create_Info;
-        populate_debug_messenger_create_info(debug_create_Info);
-        create_info.setEnabledLayerCount(static_cast<u32>(create_ctx->validation_layers.size()))
-            .setPpEnabledLayerNames(create_ctx->validation_layers.data())
-            .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_Info;
+        if (create_ctx->debug_configurator)
+        {
+            vk::DebugUtilsMessengerCreateInfoEXT debug_create_info{};
+            create_ctx->debug_configurator(debug_create_info);
+            create_info.setEnabledLayerCount(static_cast<u32>(create_ctx->validation_layers.size()))
+                .setPpEnabledLayerNames(create_ctx->validation_layers.data())
+                .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
+        }
 #endif
         instance = vk::createInstance(create_info, nullptr, loader);
         if (!instance) throw acul::runtime_error("Failed to create vk:instance");
         loader.init(instance);
-        for (auto *extension : extensions) LOG_INFO("Enabling Vulkan extension: %s", extension);
     }
 
     void device_initializer::allocate_cmd_buf_pool(const vk::CommandPoolCreateInfo &create_info, command_pool &dst,

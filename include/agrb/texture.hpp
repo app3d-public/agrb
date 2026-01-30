@@ -9,10 +9,11 @@ namespace agrb
         vk::ImageView image_view;
         vk::Sampler sampler;
         VmaAllocation allocation;
-        u32 mip_levels;
         vk::Format format;
         vk::DeviceSize size;
         vk::Extent3D image_extent;
+        u32 array_layers = 1;
+        u32 mip_levels;
     };
 
     inline void swap(texture &a, texture &b)

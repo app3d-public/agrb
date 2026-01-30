@@ -1,4 +1,4 @@
-#include <acul/io/file.hpp>
+#include <acul/io/fs/file.hpp>
 #include <agrb/pipeline.hpp>
 
 namespace agrb
@@ -46,21 +46,14 @@ namespace agrb
         return *this;
     }
 
-    bool shader_module::load(device &device)
+    acul::op_result shader_module::load(device &device)
     {
-        if (acul::io::file::read_binary(path, code) != acul::io::file::op_state::success)
-        {
-            LOG_ERROR("Failed to read shader: %s", acul::io::get_filename(path).c_str());
-            return false;
-        }
+        if (!acul::fs::read_binary(path, code)) return acul::make_op_error(ACUL_OP_READ_ERROR);
         vk::ShaderModuleCreateInfo create_info;
         create_info.setCodeSize(code.size()).setPCode(reinterpret_cast<const u32 *>(code.data()));
         if (device.vk_device.createShaderModule(&create_info, nullptr, &module, device.loader) != vk::Result::eSuccess)
-        {
-            LOG_ERROR("Failed to create shader module: %s", acul::io::get_filename(path).c_str());
-            return false;
-        }
-        return true;
+            return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
+        return acul::make_op_success();
     }
 
     bool prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
@@ -100,7 +93,7 @@ namespace agrb
     APPLIB_API void
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
-                                        const acul::io::path &shader_path)
+                                        const acul::path &shader_path)
     {
         artifact.config.pipeline_layout = layout;
         shaders.emplace_back(shader_path);

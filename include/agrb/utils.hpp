@@ -59,19 +59,38 @@ namespace agrb
         return exec.end();
     }
 
+    inline VmaAllocationCreateInfo make_alloc_info(VmaMemoryUsage usage, vk::MemoryPropertyFlags required_flags,
+                                                   vk::MemoryPropertyFlags preferred_flags, f32 priority)
+    {
+        return {.usage = usage,
+                .requiredFlags = static_cast<VkMemoryPropertyFlags>(required_flags),
+                .preferredFlags = static_cast<VkMemoryPropertyFlags>(preferred_flags),
+                .priority = priority};
+    }
+
     /// @brief Create a buffer with the given size, usage flags, and memory usage
     /// @param size Size of the buffer in bytes
     /// @param vk_usage Usage flags for the Vulkan buffer
-    /// @param vma_usage Memory usage for the buffer
     /// @param buffer Destination Vulkan buffer
-    /// @param required_flags: Required memory property flags for the buffer
-    /// @param priority: Priority of the buffer
+    /// @param alloc_info Allocation info
     /// @param allocation: Allocation for the buffer
     /// @param device Device
     /// @return True on success, false on failure
-    APPLIB_API bool create_buffer(vk::DeviceSize size, vk::BufferUsageFlags vk_usage, VmaMemoryUsage vma_usage,
-                                  vk::Buffer &buffer, vk::MemoryPropertyFlags required_flags, f32 priority,
-                                  VmaAllocation &allocation, const device &device);
+    APPLIB_API bool create_buffer(vk::DeviceSize size, vk::BufferUsageFlags vk_usage, vk::Buffer &buffer,
+                                  VmaAllocationCreateInfo alloc_info, VmaAllocation &allocation, const device &device);
+
+    /// @brief Copy buffer from source to destination
+    /// @param exec Single time execution
+    /// @param device Device
+    /// @param src_buffer Source buffer
+    /// @param dst_buffer Destination buffer
+    /// @param size Size of the buffer
+    inline void copy_buffer(single_time_exec &exec, device &device, vk::Buffer src_buffer, vk::Buffer dst_buffer,
+                            vk::DeviceSize size)
+    {
+        vk::BufferCopy copy_region(0, 0, size);
+        exec.command_buffer.copyBuffer(src_buffer, dst_buffer, 1, &copy_region, exec.loader);
+    }
 
     /// @brief Copy buffer from source to destination
     /// @param device Device
@@ -81,10 +100,87 @@ namespace agrb
     inline void copy_buffer(device &device, vk::Buffer src_buffer, vk::Buffer dst_buffer, vk::DeviceSize size)
     {
         single_time_exec exec{device};
-        vk::BufferCopy copy_region(0, 0, size);
-        exec.command_buffer.copyBuffer(src_buffer, dst_buffer, 1, &copy_region, exec.loader);
+        copy_buffer(exec, device, src_buffer, dst_buffer, size);
         exec.end();
     }
+
+    struct gpu_upload_info
+    {
+        VmaAllocation allocation;
+        vk::DeviceSize size;
+        void *data;
+
+        std::function<void(single_time_exec &exec, bool)> on_upload;
+        std::function<void(single_time_exec &, struct buffer &)> on_copy_staging;
+
+        bool valid() const { return data && size > 0; }
+    };
+
+    /**
+     * Copies data to GPU buffer that is already mapped on the host.
+     * It checks if the allocation is host visible and coherent, and if so, it just copies the data.
+     * If not, it maps the allocation, copies the data, and then unmaps the allocation.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] allocator The allocator to use for the allocation.
+     * @param[in] mem_flags The memory property flags of the allocation.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool copy_data_to_gpu_buffer_host_visible(const gpu_upload_info &upload_info, VmaAllocator &allocator,
+                                              VkMemoryPropertyFlags mem_flags);
+
+    /**
+     * Copies data to GPU buffer using a staging buffer.
+     * Itt creates a staging buffer,
+     * maps it, copies the data to the staging buffer, unmaps the staging buffer,
+     * and then uses the staging buffer as a source of transfer to the buffer described previously.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] device The device to use for the upload.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool copy_data_to_gpu_buffer_staging(const gpu_upload_info &upload_info, device &device);
+
+    /**
+     * Copies data to GPU buffer.
+     * If the allocation is host visible, it copies the data directly to the buffer.
+     * Otherwise, it uses a staging buffer to copy the data.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] device The device to use for the upload.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool copy_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
+
+    /**
+     * Copies data to GPU buffer that is already mapped on the host.
+     * It checks if the allocation is host visible and coherent, and if so, it just copies the data.
+     * If not, it maps the allocation, copies the data, and then unmaps the allocation.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] allocator The allocator to use for the allocation.
+     * @param[in] mem_flags The memory property flags of the allocation.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool move_data_to_gpu_buffer_host_visible(const gpu_upload_info &upload_info, VmaAllocator &allocator,
+                                              VkMemoryPropertyFlags mem_flags);
+
+    /**
+     * Copies data to GPU buffer using a staging buffer.
+     * Itt creates a staging buffer,
+     * maps it, copies the data to the staging buffer, unmaps the staging buffer,
+     * and then uses the staging buffer as a source of transfer to the buffer described previously.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] device The device to use for the upload.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool move_data_to_gpu_buffer_staging(const gpu_upload_info &upload_info, device &device);
+
+    /**
+     * Moves data to GPU buffer.
+     * If the allocation is host visible, it moves the data directly to the buffer.
+     * Otherwise, it uses a staging buffer to move the data.
+     * @param[in] upload_info Information about the upload.
+     * @param[in] device The device to use for the upload.
+     * @return True if the upload was successful, false otherwise.
+     */
+    bool move_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
 
     /// @brief Transit image layout from one layout to another one using pipeline memory barrier
     /// @param device Device
@@ -126,17 +222,58 @@ namespace agrb
         info.end();
     }
 
-    /// @brief Create VK image by ImageCreeateInfo structure
-    /// @param imageInfo ImageCreateInfo structure
-    /// @param image Destination VK image
-    /// @param allocation VMA allocation
-    /// @param allocator VMA allocator
-    /// @param vma_usage_flags Usage flags for vma allocation
-    /// @param vk_mem_flags Memory properties
-    /// @param priority Mem priority
-    /// @return True on success, false on failure
-    APPLIB_API bool create_image(const vk::ImageCreateInfo &image_info, vk::Image &image, VmaAllocation &allocation,
-                                 VmaAllocator &allocator, VmaMemoryUsage vma_usage_flags = VMA_MEMORY_USAGE_GPU_ONLY,
-                                 vk::MemoryPropertyFlags vk_mem_flags = vk::MemoryPropertyFlagBits::eDeviceLocal,
-                                 f32 priority = 0.5f);
+    /**
+     * @brief Allocates a Vulkan image and binds it to a VMA allocation.
+     *
+     * @param image_info Image creation info.
+     * @param image Allocated image.
+     * @param allocated Allocation created by VMA.
+     * @param allocator VMA allocator.
+     * @param alloc_info Allocation info.
+     *
+     * @return true if image allocation succeeded, false otherwise.
+     */
+    inline bool create_image(const vk::ImageCreateInfo &image_info, vk::Image &image, VmaAllocation &allocation,
+                             VmaAllocator &allocator, VmaAllocationCreateInfo alloc_info)
+    {
+        return vmaCreateImage(allocator, reinterpret_cast<const VkImageCreateInfo *>(&image_info), &alloc_info,
+                              reinterpret_cast<VkImage *>(&image), &allocation, nullptr) == VK_SUCCESS;
+    }
+
+    /**
+     * @brief Clamp a 2D rectangle to fit within a given 2D extent.
+     *
+     * @param r The rectangle to clamp.
+     * @param e The extent to clamp to.
+     *
+     * @return A new rectangle that is clamped to fit within the given extent.
+     */
+    inline vk::Rect2D clamp_rect_to_extent(vk::Rect2D r, vk::Extent2D e)
+    {
+        i32 x0 = std::max(0, r.offset.x);
+        i32 y0 = std::max(0, r.offset.y);
+
+        i32 x1 = std::min<i32>((i32)e.width, r.offset.x + (i32)r.extent.width);
+        i32 y1 = std::min<i32>((i32)e.height, r.offset.y + (i32)r.extent.height);
+
+        u32 w = (x1 > x0) ? (u32)(x1 - x0) : 0u;
+        u32 h = (y1 > y0) ? (u32)(y1 - y0) : 0u;
+
+        return vk::Rect2D{vk::Offset2D{x0, y0}, vk::Extent2D{w, h}};
+    }
+
+    inline vk::MemoryPropertyFlags get_allocation_memory_flags(VmaAllocator allocator, VmaAllocation allocation)
+    {
+        VmaAllocationInfo alloc_info{};
+        vmaGetAllocationInfo(allocator, allocation, &alloc_info);
+        VkMemoryPropertyFlags actual = 0;
+        vmaGetMemoryTypeProperties(allocator, alloc_info.memoryType, &actual);
+        return static_cast<vk::MemoryPropertyFlags>(actual);
+    }
+
+    inline vk::MemoryPropertyFlags missing_memory_flags(VmaAllocator allocator, VmaAllocation allocation,
+                                                        vk::MemoryPropertyFlags flags)
+    {
+        return flags & ~get_allocation_memory_flags(allocator, allocation);
+    }
 } // namespace agrb

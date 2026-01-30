@@ -7,13 +7,11 @@ void check_buffer_construct(device &d)
 {
     buffer b;
     b.instance_count = 1;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eTransferSrc;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
-    b.priority = 0.1f;
+    auto create_info = make_alloc_info(VMA_MEMORY_USAGE_CPU_ONLY, vk::MemoryPropertyFlagBits::eHostVisible,
+                                       vk::MemoryPropertyFlagBits::eHostCoherent, 0.1f);
     construct_buffer(b, sizeof(int));
-    assert(agrb::allocate_buffer(b, d));
-    assert(agrb::map_buffer(b, d));
+    assert(allocate_buffer(b, create_info, vk::BufferUsageFlagBits::eTransferSrc, d));
+    assert(map_buffer(b, d));
 
     int value = 7;
     write_to_buffer(b, &value);
@@ -31,14 +29,12 @@ void check_buffer_ubo(device &d)
 {
     buffer b;
     b.instance_count = 3;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eTransferSrc;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
-    b.priority = 0.1f;
+    auto create_info = make_alloc_info(VMA_MEMORY_USAGE_CPU_ONLY, vk::MemoryPropertyFlagBits::eHostVisible,
+                                       vk::MemoryPropertyFlagBits::eHostCoherent, 0.1f);
 
     construct_ubo_buffer(b, sizeof(u32), d.rd);
-    assert(agrb::allocate_buffer(b, d));
-    assert(agrb::map_buffer(b, d));
+    assert(allocate_buffer(b, create_info, vk::BufferUsageFlagBits::eTransferSrc, d));
+    assert(map_buffer(b, d));
 
     u32 values[3] = {1, 2, 3};
     for (int i = 0; i < 3; ++i)
@@ -56,13 +52,11 @@ void check_move_to_buffer(device &d)
 {
     buffer b;
     b.instance_count = 1;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eTransferSrc;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
-    b.priority = 0.1f;
+    auto create_info = make_alloc_info(VMA_MEMORY_USAGE_CPU_ONLY, vk::MemoryPropertyFlagBits::eHostVisible,
+                                       vk::MemoryPropertyFlagBits::eHostCoherent, 0.1f);
 
     construct_buffer(b, sizeof(int) * 3);
-    assert(allocate_buffer(b, d));
+    assert(allocate_buffer(b, create_info, vk::BufferUsageFlagBits::eTransferSrc, d));
     assert(map_buffer(b, d));
 
     int values[] = {10, 20, 30};
@@ -89,10 +83,12 @@ void check_move_to_buffer(device &d)
 
 void test_buffer()
 {
+    init_library();
     Enviroment env;
     init_environment(env);
     check_buffer_construct(env.d);
     check_buffer_ubo(env.d);
     check_move_to_buffer(env.d);
     destroy_device(env.d);
+    destroy_library();
 }

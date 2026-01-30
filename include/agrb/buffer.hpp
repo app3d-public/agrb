@@ -13,26 +13,28 @@ namespace agrb
         VmaAllocation allocation = VK_NULL_HANDLE;
         vk::DeviceSize alignment_size = 0;
         vk::DeviceSize buffer_size = 0;
-        vk::BufferUsageFlags vk_usage_flags = {};
-        VmaMemoryUsage vma_usage_flags = VMA_MEMORY_USAGE_UNKNOWN;
-        vk::MemoryPropertyFlags memory_property_flags = {};
-        f32 priority = 0.5f;
-
         struct mem_cache;
+    };
+
+    struct managed_buffer final: buffer
+    {
+        vk::MemoryPropertyFlags required_flags;
+        vk::MemoryPropertyFlags prefered_flags;
+        vk::BufferUsageFlags buffer_usage;
+        VmaMemoryUsage vma_usage;
+        f32 priority = 0.5f;
     };
 
     inline void construct_buffer(buffer &buffer, size_t instance_size, size_t min_offset_alignment = 1)
     {
         buffer.alignment_size = get_alignment(instance_size, min_offset_alignment);
         buffer.buffer_size = buffer.alignment_size * buffer.instance_count;
-        LOG_DEBUG("Created new buffer %p, purpose: %s", &buffer, vk::to_string(buffer.vk_usage_flags).c_str());
     }
 
     inline void construct_ubo_buffer(buffer &buffer, size_t instance_size, device_runtime_data *rd)
     {
         buffer.alignment_size = rd->get_aligned_ubo_size(instance_size);
         buffer.buffer_size = buffer.alignment_size * buffer.instance_count;
-        LOG_DEBUG("Created new buffer %p, purpose: %s", &buffer, vk::to_string(buffer.vk_usage_flags).c_str());
     }
 
     inline bool map_buffer(buffer &buffer, device &device)
@@ -49,18 +51,16 @@ namespace agrb
 
     inline void destroy_buffer(buffer &buffer, device &device)
     {
-        LOG_DEBUG("Deallocating buffer %p vk: %p purpose: %s", &buffer, (void *)buffer.vk_buffer,
-                  vk::to_string(buffer.vk_usage_flags).c_str());
         unmap_buffer(buffer, device);
         vmaDestroyBuffer(device.allocator, buffer.vk_buffer, buffer.allocation);
         buffer = {};
     }
 
-    inline bool allocate_buffer(buffer &buffer, device &device)
+    inline bool allocate_buffer(buffer &buffer, VmaAllocationCreateInfo alloc_info, vk::BufferUsageFlags usage_flags,
+                                device &device)
     {
         assert(buffer.buffer_size > 0);
-        return create_buffer(buffer.buffer_size, buffer.vk_usage_flags, buffer.vma_usage_flags, buffer.vk_buffer,
-                             buffer.memory_property_flags, buffer.priority, buffer.allocation, device);
+        return create_buffer(buffer.buffer_size, usage_flags, buffer.vk_buffer, alloc_info, buffer.allocation, device);
     }
 
     /**

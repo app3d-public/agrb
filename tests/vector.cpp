@@ -1,4 +1,5 @@
 #include <agrb/vector.hpp>
+#include <numeric>
 #include "env.hpp"
 
 using namespace agrb;
@@ -9,10 +10,10 @@ void test_vector_basic(device &d)
     assert(v.empty());
     assert(v.size() == 0);
 
-    buffer b0;
-    b0.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b0.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b0.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b0;
+    b0.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b0.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b0.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     v.init(d, b0);
 
     v.push_back(1);
@@ -29,10 +30,10 @@ void test_vector_basic(device &d)
     assert(v.empty());
     assert(v.size() == 0);
 
-    buffer b1;
-    b1.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b1.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b1.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b1;
+    b1.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b1.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b1.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     b1.instance_count = 10;
     vector<u32> v2(d, b1, 7);
     assert(v2.size() == 10);
@@ -42,10 +43,10 @@ void test_vector_basic(device &d)
 void test_vector_resize_reserve(device &d)
 {
     vector<int> v;
-    buffer b0;
-    b0.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b0.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b0.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b0;
+    b0.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b0.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b0.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     v.init(d, b0);
 
     v.reserve(10);
@@ -64,10 +65,10 @@ void test_vector_resize_reserve(device &d)
 
 void test_vector_move(device &d)
 {
-    buffer b;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b;
+    b.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     vector<int> v1{d, b};
     v1.push_back(100);
     v1.push_back(200);
@@ -82,10 +83,10 @@ void test_vector_move(device &d)
 
 void test_vector_front_back(device &d)
 {
-    buffer b;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b;
+    b.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     vector<int> v{d, b};
     v.push_back(5);
     v.push_back(10);
@@ -103,10 +104,10 @@ void test_vector_front_back(device &d)
 
 void test_vector_insert_erase(device &d)
 {
-    buffer b;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b;
+    b.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     vector<int> v{{1, 2, 4}, d, b};
 
     v.insert(v.begin() + 2, 3);
@@ -123,10 +124,10 @@ void test_vector_insert_erase(device &d)
 
 void test_vector_assign(device &d)
 {
-    buffer b;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b;
+    b.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     vector<int> v{d, b};
     v.assign(5, 42);
     assert(v.size() == 5);
@@ -135,10 +136,10 @@ void test_vector_assign(device &d)
 
 void test_vector_iterators(device &d)
 {
-    buffer b;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eStorageBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
+    managed_buffer b;
+    b.buffer_usage = vk::BufferUsageFlagBits::eStorageBuffer;
+    b.vma_usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    b.required_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
     b.instance_count = 5;
     vector<int> v(d, b);
     assert(v.data().mapped);
@@ -154,6 +155,7 @@ void test_vector_iterators(device &d)
 
 void test_vector()
 {
+    init_library();
     Enviroment env;
     init_environment(env);
 
@@ -164,4 +166,5 @@ void test_vector()
     test_vector_insert_erase(env.d);
     test_vector_assign(env.d);
     test_vector_iterators(env.d);
+    destroy_library();
 }

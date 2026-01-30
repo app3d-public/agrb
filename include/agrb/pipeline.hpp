@@ -1,7 +1,9 @@
 #pragma once
 
+#include <acul/io/path.hpp>
 #include <acul/list.hpp>
-#include <acul/log.hpp>
+#include <acul/memory/destructible.hpp>
+#include <acul/op_result.hpp>
 #include "device.hpp"
 
 namespace agrb
@@ -100,7 +102,7 @@ namespace agrb
          *
          * @param device The Vulkan device to load the shader module into.
          */
-        bool load(device &device);
+        acul::op_result load(device &device);
 
         /**
          * @brief Destroy the shader module.
@@ -195,19 +197,16 @@ namespace agrb
                 res = device.vk_device.createComputePipelines(cache, size, create_info, nullptr, pipelines,
                                                               device.loader);
             for (auto &shader : shaders) shader.destroy(device);
-            if (res != vk::Result::eSuccess)
-            {
-                LOG_ERROR("Failed to create pipelines: %s", vk::to_string(res).c_str());
-                return false;
-            }
+            if (res != vk::Result::eSuccess) return false;
 
             it = artifacts.begin();
             for (size_t i = 0; i < size; i++, ++it)
+            {
                 if (it->commit)
                     it->commit(pipelines[i]);
                 else
                     device.vk_device.destroyPipeline(pipelines[i], nullptr, device.loader);
-            LOG_INFO("Created %zu pipelines", size);
+            }
             return true;
         }
 
@@ -239,5 +238,5 @@ namespace agrb
     APPLIB_API void
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
-                                        const acul::io::path &shader_path);
+                                        const acul::path &shader_path);
 } // namespace agrb

@@ -46,8 +46,6 @@ void create_test_image_memory(device &d, vk::Image &image, vk::DeviceMemory &mem
 
     vk::DeviceMemory image_memory = d.vk_device.allocateMemory(alloc_info, nullptr, d.loader);
     d.vk_device.bindImageMemory(image, image_memory, 0, d.loader);
-
-    d.vk_device.freeMemory(image_memory, nullptr, d.loader);
 }
 
 void create_test_image_sampler(device &d, vk::Sampler &sampler)
@@ -63,86 +61,91 @@ void create_test_image_sampler(device &d, vk::Sampler &sampler)
     sampler = d.vk_device.createSampler(sampler_info, nullptr, d.loader);
 }
 
+void test_descriptors_main()
+{
+      Enviroment env;
+        init_environment(env);
+
+        buffer b;
+        b.instance_count = 1;
+        auto create_info = make_alloc_info(VMA_MEMORY_USAGE_CPU_ONLY, vk::MemoryPropertyFlagBits::eHostVisible,
+                                           vk::MemoryPropertyFlagBits::eHostCoherent, 0.5f);
+        construct_buffer(b, sizeof(int));
+        assert(allocate_buffer(b, create_info, vk::BufferUsageFlagBits::eUniformBuffer, env.d));
+
+        assert(map_buffer(b, env.d));
+        int value = 123;
+        write_to_buffer(b, &value);
+        flush_buffer(b, env.d);
+
+        // === layout ===
+        auto layout = descriptor_set_layout::builder()
+                          .add_binding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex)
+                          .add_binding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
+                          .build(env.d);
+        assert(layout);
+        assert(layout->layout());
+
+        // === descriptor pool ===
+        auto pool = descriptor_pool::builder()
+                        .add_pool_size(vk::DescriptorType::eUniformBuffer, 1)
+                        .add_pool_size(vk::DescriptorType::eCombinedImageSampler, 1)
+                        .set_max_sets(2)
+                        .set_pool_flags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
+                                        vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind)
+                        .build(env.d);
+        assert(pool);
+        assert(pool->vk_pool());
+
+        // === Descriptor write ===
+        vk::DescriptorBufferInfo buffer_info;
+        buffer_info.buffer = b.vk_buffer;
+        buffer_info.offset = 0;
+        buffer_info.range = sizeof(int);
+
+        vk::DescriptorSet descriptor_set;
+        descriptor_writer writer(*layout, *pool);
+        writer.write_buffer(0, &buffer_info);
+        assert(writer.build(descriptor_set));
+        assert(descriptor_set);
+
+        // Image
+        vk::Image image;
+        vk::DeviceMemory image_memory;
+        vk::ImageView image_view;
+        vk::Sampler sampler;
+
+        create_test_image(env.d, image);
+        create_test_image_memory(env.d, image, image_memory);
+        create_test_image_view(env.d, image, image_view);
+        create_test_image_sampler(env.d, sampler);
+
+        vk::DescriptorImageInfo image_info{};
+        image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        image_info.imageView = image_view;
+        image_info.sampler = sampler;
+
+        vk::DescriptorSet image_set;
+        descriptor_writer image_writer(*layout, *pool);
+        image_writer.write_image(1, &image_info);
+        assert(image_writer.build(image_set));
+        assert(image_set);
+
+        // === Clean ===
+        env.d.vk_device.destroySampler(sampler, nullptr, env.d.loader);
+        env.d.vk_device.destroyImageView(image_view, nullptr, env.d.loader);
+        env.d.vk_device.freeMemory(image_memory, nullptr, env.d.loader);
+        env.d.vk_device.destroyImage(image, nullptr, env.d.loader);
+
+        acul::vector<vk::DescriptorSet> sets{descriptor_set};
+        pool->free_descriptors(sets);
+        pool->reset_pool();
+        destroy_buffer(b, env.d);
+}
+
 void test_descriptors()
 {
-    Enviroment env;
-    init_environment(env);
-
-    buffer b;
-    b.instance_count = 1;
-    b.vk_usage_flags = vk::BufferUsageFlagBits::eUniformBuffer;
-    b.vma_usage_flags = VMA_MEMORY_USAGE_CPU_ONLY;
-    b.memory_property_flags = vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent;
-    b.priority = 0.0f;
-    construct_buffer(b, sizeof(int));
-    assert(allocate_buffer(b, env.d));
-
-    assert(map_buffer(b, env.d));
-    int value = 123;
-    write_to_buffer(b, &value);
-    flush_buffer(b, env.d);
-
-    // === layout ===
-    auto layout = descriptor_set_layout::builder()
-                      .add_binding(0, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex)
-                      .add_binding(1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment)
-                      .build(env.d);
-    assert(layout);
-    assert(layout->layout());
-
-    // === descriptor pool ===
-    auto pool = descriptor_pool::builder()
-                    .add_pool_size(vk::DescriptorType::eUniformBuffer, 1)
-                    .add_pool_size(vk::DescriptorType::eCombinedImageSampler, 1)
-                    .set_max_sets(2)
-                    .set_pool_flags(vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet |
-                                    vk::DescriptorPoolCreateFlagBits::eUpdateAfterBind)
-                    .build(env.d);
-    assert(pool);
-    assert(pool->vk_pool());
-
-    // === Descriptor write ===
-    vk::DescriptorBufferInfo buffer_info;
-    buffer_info.buffer = b.vk_buffer;
-    buffer_info.offset = 0;
-    buffer_info.range = sizeof(int);
-
-    vk::DescriptorSet descriptor_set;
-    descriptor_writer writer(*layout, *pool);
-    writer.write_buffer(0, &buffer_info);
-    assert(writer.build(descriptor_set));
-    assert(descriptor_set);
-
-    // Image
-    vk::Image image;
-    vk::DeviceMemory image_memory;
-    vk::ImageView image_view;
-    vk::Sampler sampler;
-
-    create_test_image(env.d, image);
-    create_test_image_memory(env.d, image, image_memory);
-    create_test_image_view(env.d, image, image_view);
-    create_test_image_sampler(env.d, sampler);
-
-    vk::DescriptorImageInfo image_info{};
-    image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    image_info.imageView = image_view;
-    image_info.sampler = sampler;
-
-    vk::DescriptorSet image_set;
-    descriptor_writer image_writer(*layout, *pool);
-    image_writer.write_image(1, &image_info);
-    assert(image_writer.build(image_set));
-    assert(image_set);
-
-    // === Clean ===
-    env.d.vk_device.destroySampler(sampler, nullptr, env.d.loader);
-    env.d.vk_device.destroyImageView(image_view, nullptr, env.d.loader);
-    env.d.vk_device.freeMemory(image_memory, nullptr, env.d.loader);
-    env.d.vk_device.destroyImage(image, nullptr, env.d.loader);
-
-    acul::vector<vk::DescriptorSet> sets{descriptor_set};
-    pool->free_descriptors(sets);
-    pool->reset_pool();
-    destroy_buffer(b, env.d);
+    init_library();
+    test_descriptors_main();
+    destroy_library();
 }

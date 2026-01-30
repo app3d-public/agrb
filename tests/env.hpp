@@ -4,7 +4,6 @@
 
 struct Enviroment
 {
-    acul::task::service_dispatch sd;
     agrb::device d;
     agrb::device_runtime_data rd;
 };

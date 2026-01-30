@@ -5,6 +5,7 @@ using namespace agrb;
 
 void test_pipeline()
 {
+    init_library();
     Enviroment env;
     init_environment(env);
 
@@ -15,9 +16,12 @@ void test_pipeline()
 
     const char *data_dir = getenv("TEST_DATA_DIR");
     assert(data_dir);
-    acul::io::path p = data_dir;
+    acul::path p = data_dir;
     vert_shader.path = p / "vs_test.spv";
     frag_shader.path = p / "fs_test.spv";
+
+    assert(vert_shader.load(env.d).success());
+    assert(frag_shader.load(env.d).success());
 
     batch.artifacts.emplace_back();
     auto &artifact = batch.artifacts.back();
@@ -52,6 +56,37 @@ void test_pipeline()
     vk::RenderPass render_pass = env.d.vk_device.createRenderPass(rpInfo, nullptr, env.d.loader);
 
     artifact.config.render_pass = render_pass;
+    artifact.config.shader_stages.emplace_back();
+    artifact.config.shader_stages.back()
+        .setStage(vk::ShaderStageFlagBits::eVertex)
+        .setModule(vert_shader.module)
+        .setPName("main");
+
+    artifact.config.shader_stages.emplace_back();
+    artifact.config.shader_stages.back()
+        .setStage(vk::ShaderStageFlagBits::eFragment)
+        .setModule(frag_shader.module)
+        .setPName("main");
+    artifact.config.vertex_input_info.setVertexBindingDescriptionCount(artifact.config.binding_descriptions.size())
+        .setVertexAttributeDescriptionCount(artifact.config.attribute_descriptions.size())
+        .setPVertexBindingDescriptions(artifact.config.binding_descriptions.data())
+        .setPVertexAttributeDescriptions(artifact.config.attribute_descriptions.data());
+    artifact.config.viewport_info.setViewportCount(1).setPViewports(nullptr).setScissorCount(1).setPScissors(nullptr);
+    artifact.create_info.setStageCount(2)
+        .setPStages(artifact.config.shader_stages.data())
+        .setPVertexInputState(&artifact.config.vertex_input_info)
+        .setPInputAssemblyState(&artifact.config.input_assembly_info)
+        .setPViewportState(&artifact.config.viewport_info)
+        .setPRasterizationState(&artifact.config.rasterization_info)
+        .setPMultisampleState(&artifact.config.multisample_info)
+        .setPColorBlendState(&artifact.config.color_blend_info)
+        .setPDepthStencilState(&artifact.config.depth_stencil_info)
+        .setPDynamicState(&artifact.config.dynamic_state_info)
+        .setLayout(artifact.config.pipeline_layout)
+        .setRenderPass(artifact.config.render_pass)
+        .setSubpass(artifact.config.subpass)
+        .setBasePipelineIndex(-1)
+        .setBasePipelineHandle(nullptr);
 
     artifact.commit = [&](vk::Pipeline pipeline) {
         assert(pipeline);
@@ -62,4 +97,7 @@ void test_pipeline()
 
     env.d.vk_device.destroyRenderPass(render_pass, nullptr, env.d.loader);
     env.d.vk_device.destroyPipelineLayout(pipeline_layout, nullptr, env.d.loader);
+    vert_shader.destroy(env.d);
+    frag_shader.destroy(env.d);
+    destroy_library();
 }

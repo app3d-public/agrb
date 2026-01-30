@@ -91,32 +91,33 @@ namespace agrb
         create_info.pAttachments->extent = extent;
     }
 
-    bool create_fb_handles(framebuffer &fb, device &dev)
+    bool create_fb_handles(framebuffer *fb, device &dev)
     {
-        auto &fb_attachments = *fb.attachments;
+        assert(fb->attachments);
+        auto &fb_attachments = *fb->attachments;
         for (int i = 0; i < fb_attachments.image_count; ++i)
         {
             fb_image_slot &image = fb_attachments.images[i];
             vk::ImageView attachments[fb_attachments.attachment_count];
             int out = 0;
             for (int slot = 0; slot < static_cast<int>(image.attachments.size()); ++slot)
+                for (auto &attachment : image.attachments[slot].view_group) attachments[out++] = attachment;
+
+            int fb_id = 0;
+            for (auto &fb_dst : image.fb_group)
             {
-                auto &att = image.attachments[slot];
-                if (att.view_count > 1)
-                    for (int v = 0; v < att.view_count; ++v) attachments[out++] = att.views[v];
-                else
-                    attachments[out++] = att.view;
+                vk::FramebufferCreateInfo framebuffer_info;
+                framebuffer_info.setRenderPass(fb->rp_group.at(fb_id))
+                    .setAttachmentCount(fb_attachments.attachment_count)
+                    .setPAttachments(attachments)
+                    .setWidth(fb_attachments.extent.width)
+                    .setHeight(fb_attachments.extent.height)
+                    .setLayers(1);
+                if (dev.vk_device.createFramebuffer(&framebuffer_info, nullptr, &fb_dst, dev.loader) !=
+                    vk::Result::eSuccess)
+                    return false;
+                ++fb_id;
             }
-            vk::FramebufferCreateInfo framebuffer_info;
-            framebuffer_info.setRenderPass(fb.render_pass)
-                .setAttachmentCount(fb_attachments.attachment_count)
-                .setPAttachments(attachments)
-                .setWidth(fb_attachments.extent.width)
-                .setHeight(fb_attachments.extent.height)
-                .setLayers(1);
-            if (dev.vk_device.createFramebuffer(&framebuffer_info, nullptr, &image.framebuffer, dev.loader) !=
-                vk::Result::eSuccess)
-                return false;
         }
         return true;
     }

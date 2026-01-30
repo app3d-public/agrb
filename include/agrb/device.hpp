@@ -9,12 +9,9 @@
 #if defined(__clang__)
     #pragma clang diagnostic pop
 #endif
-#include <acul/api.hpp>
-#include <acul/exception/exception.hpp>
-#include <acul/log.hpp>
-#include <acul/scalars.hpp>
+#include <acul/string/string.hpp>
 #include <acul/vector.hpp>
-#include <vulkan/vulkan.hpp>
+#include "agrb.hpp"
 #include "pool.hpp"
 
 #if VK_HEADER_VERSION > 290
@@ -26,15 +23,6 @@ namespace vk
 
 namespace agrb
 {
-    namespace internal
-    {
-        extern APPLIB_API struct device_library
-        {
-            vk::DynamicLoader vklib;
-            vk::DispatchLoaderDynamic dispatch_loader;
-        } libgpu;
-    } // namespace internal
-
     /// @brief Swapchain details
     struct swapchain_support_details
     {
@@ -53,12 +41,11 @@ namespace agrb
         vk::DispatchLoaderDynamic &loader;
         struct device_runtime_data *rd;
 
-        device() : loader(internal::libgpu.dispatch_loader), rd(nullptr) {}
+        device() : loader(detail::g_devlib->dispatch_loader), rd(nullptr) {}
 
         void destroy_window_surface(vk::DispatchLoaderDynamic &dispatch_loader)
         {
             if (!surface) return;
-            LOG_INFO("Destroying vk:surface");
             instance.destroySurfaceKHR(surface, nullptr, dispatch_loader);
         }
 
@@ -150,7 +137,6 @@ namespace agrb
 
         void destroy(vk::Device device, vk::DispatchLoaderDynamic &loader)
         {
-            LOG_INFO("Destroying command pools");
             device.destroyCommandPool(graphics.pool.vk_pool, nullptr, loader);
             device.destroyCommandPool(compute.pool.vk_pool, nullptr, loader);
         }
@@ -180,7 +166,6 @@ namespace agrb
 
         void destroy(vk::Device &device, vk::DispatchLoaderDynamic &loader)
         {
-            LOG_INFO("Destroying device resources");
             queues.destroy(device, loader);
             fence_pool.destroy();
         }
@@ -205,12 +190,34 @@ namespace agrb
         friend struct device_initializer;
     };
 
+    /**
+     * @class physical_device_selector
+     * @brief Abstract base class for selecting a physical device in Vulkan.
+     *
+     * This class defines the interface for selecting a physical device in Vulkan
+     *
+     * This class is designed to be subclassed and implemented by specific device selectors, which can then provide
+     * their own implementation of these methods.
+     */
     class physical_device_selector
     {
     public:
         virtual ~physical_device_selector() = default;
 
-        virtual const vk::PhysicalDevice *select(const std::vector<vk::PhysicalDevice> &devices) = 0;
+        /**
+         * @brief Request a physical device from a list of available physical devices.
+         *
+         * @param devices The list of available physical devices.
+         * @return A pointer to the selected physical device.
+         */
+        virtual const vk::PhysicalDevice *request(const std::vector<vk::PhysicalDevice> &devices) = 0;
+
+        /**
+         * @brief Indicate the success or failure of the device selection process.
+         *
+         * @param success A boolean indicating the success status.
+         */
+        virtual void response(bool success) = 0;
     };
 
     class device_create_ctx
@@ -221,10 +228,13 @@ namespace agrb
         acul::vector<const char *> device_extensions_optional;
         size_t fence_pool_size;
         vk::PhysicalDeviceFeatures device_features;
-        void *device_logical_next;
-        void *device_physical_next;
-        device_runtime_data *runtime_data;
-        physical_device_selector *ph_selector;
+        void *device_logical_next = nullptr;
+        void *device_physical_next = nullptr;
+        device_runtime_data *runtime_data = nullptr;
+        physical_device_selector *ph_selector = nullptr;
+#ifndef NDEBUG
+        void (*debug_configurator)(vk::DebugUtilsMessengerCreateInfoEXT &) = nullptr;
+#endif
 
         // Callback types
         using PFN_assign_instance_extensions = void (*)(device_create_ctx *, const acul::set<acul::string> &,
@@ -294,6 +304,14 @@ namespace agrb
             this->runtime_data = data;
             return *this;
         }
+
+#ifndef NDEBUG
+        device_create_ctx &set_debug_configurator(void (*configurator)(vk::DebugUtilsMessengerCreateInfoEXT &))
+        {
+            debug_configurator = configurator;
+            return *this;
+        }
+#endif
     };
 
     APPLIB_API void assign_instance_extensions_default(device_create_ctx *ctx, const acul::set<acul::string> &ext,

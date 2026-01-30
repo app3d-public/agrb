@@ -23,9 +23,12 @@ namespace agrb
 
         vector() = default;
 
-        vector(device &dev, const buffer &buf) : _device(&dev), _data(buf), _size(buf.instance_count) { construct(); }
+        vector(device &dev, const managed_buffer &buf) : _device(&dev), _data(buf), _size(buf.instance_count)
+        {
+            construct();
+        }
 
-        vector(device &dev, const buffer &buf, const_reference value) : _device(&dev), _data(buf)
+        vector(device &dev, const managed_buffer &buf, const_reference value) : _device(&dev), _data(buf)
         {
             _size = std::max(buf.instance_count, 1U);
             _data.instance_count = _size;
@@ -34,13 +37,13 @@ namespace agrb
         }
 
         template <typename InputIt, std::enable_if_t<acul::is_input_iterator<InputIt>::value, int> = 0>
-        vector(InputIt first, InputIt last, device &dev, const buffer &buf) : _device(&dev), _data(buf)
+        vector(InputIt first, InputIt last, device &dev, const managed_buffer &buf) : _device(&dev), _data(buf)
         {
             for (; first != last; ++first) push_back(*first);
         }
 
         template <typename ForwardIt, std::enable_if_t<acul::is_forward_iterator_based<ForwardIt>::value, int> = 0>
-        vector(ForwardIt first, ForwardIt last, device &dev, const buffer &buf) : _device(&dev), _data(buf)
+        vector(ForwardIt first, ForwardIt last, device &dev, const managed_buffer &buf) : _device(&dev), _data(buf)
         {
             _size = std::distance(first, last);
             _data.instance_count = static_cast<u32>(_size);
@@ -53,7 +56,7 @@ namespace agrb
             acul::release(tmp);
         }
 
-        vector(std::initializer_list<value_type> ilist, device &dev, const buffer &buf)
+        vector(std::initializer_list<value_type> ilist, device &dev, const managed_buffer &buf)
             : _device(&dev), _data(buf), _size(ilist.size())
         {
             _data.instance_count = static_cast<u32>(_size);
@@ -159,7 +162,7 @@ namespace agrb
 
         bool is_inited() const { return _device != nullptr && _data.vk_buffer; }
 
-        void init(device &dev, const buffer &buf)
+        void init(device &dev, const managed_buffer &buf)
         {
             _device = &dev;
             _data = buf;
@@ -330,7 +333,7 @@ namespace agrb
     private:
         device *_device = nullptr;
         device_runtime_data *_rd = nullptr;
-        buffer _data;
+        managed_buffer _data;
         size_type _size = 0;
 
         void construct()
@@ -341,7 +344,9 @@ namespace agrb
 
         bool allocate()
         {
-            if (!allocate_buffer(_data, *_device)) return false;
+            auto create_info =
+                make_alloc_info(_data.vma_usage, _data.required_flags, _data.prefered_flags, _data.priority);
+            if (!allocate_buffer(_data, create_info, _data.buffer_usage, *_device)) return false;
             if (!map_buffer(_data, *_device))
             {
                 destroy_buffer(_data, *_device);
@@ -360,16 +365,18 @@ namespace agrb
 
         size_type get_required_mem(size_type n) const { return n * _data.alignment_size; }
 
-        bool reallocate(bool adjustCapacity = true)
+        bool reallocate(bool adjust_capacity = true)
         {
             assert(_device);
-            if (adjustCapacity)
+            if (adjust_capacity)
                 _data.instance_count = acul::get_growth_size(_data.instance_count, _data.instance_count + 1);
-            buffer new_buffer = _data;
+            managed_buffer new_buffer = _data;
             new_buffer.instance_count = static_cast<u32>(_data.instance_count);
             construct_buffer(new_buffer, sizeof(value_type));
 
-            if (!allocate_buffer(new_buffer, *_device)) return false;
+            auto create_info =
+                make_alloc_info(_data.vma_usage, _data.required_flags, _data.prefered_flags, _data.priority);
+            if (!allocate_buffer(new_buffer, create_info, _data.buffer_usage, *_device)) return false;
             if (_data.vk_buffer) copy_buffer(*_device, _data.vk_buffer, new_buffer.vk_buffer, get_required_mem(_size));
             if (!map_buffer(new_buffer, *_device))
             {

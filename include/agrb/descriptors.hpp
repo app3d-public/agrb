@@ -6,6 +6,8 @@
 #pragma once
 
 #include "device.hpp"
+#include <acul/memory/smart_ptr.hpp>
+#include <acul/hash/hashmap.hpp>
 
 namespace agrb
 {

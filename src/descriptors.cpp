@@ -23,18 +23,13 @@ namespace agrb
     bool descriptor_pool::allocate_descriptor(const vk::DescriptorSetLayout descriptor_set_layout,
                                               vk::DescriptorSet &descriptor) const
     {
-        vk::DescriptorSetAllocateInfo allocInfo;
-        allocInfo.setDescriptorPool(_descriptor_pool).setDescriptorSetCount(1).setPSetLayouts(&descriptor_set_layout);
+        vk::DescriptorSetAllocateInfo alloc_info;
+        alloc_info.setDescriptorPool(_descriptor_pool).setDescriptorSetCount(1).setPSetLayouts(&descriptor_set_layout);
 
         // Might want to create a "descriptor pool manager" class that handles this case, and builds
         // a new pool whenever an old pool fills up. But this is beyond our current scope
-        vk::Result result = _device.vk_device.allocateDescriptorSets(&allocInfo, &descriptor, _device.loader);
-        if (result != vk::Result::eSuccess)
-        {
-            LOG_ERROR("Failed to allocate descriptor sets. Result: %s", vk::to_string(result).c_str());
-            return false;
-        }
-        return true;
+        return _device.vk_device.allocateDescriptorSets(&alloc_info, &descriptor, _device.loader) ==
+               vk::Result::eSuccess;
     }
 
     // *************** Descriptor Writer *********************
@@ -59,12 +54,12 @@ namespace agrb
     descriptor_writer &descriptor_writer::write_image(u32 binding, vk::DescriptorImageInfo *image_info)
     {
         assert(_set_layout._bindings.count(binding) == 1 && "Layout does not contain specified binding");
-        const auto &bindingDescription = _set_layout._bindings[binding];
-        assert(bindingDescription.descriptorCount == 1 &&
+        const auto &binding_description = _set_layout._bindings[binding];
+        assert(binding_description.descriptorCount == 1 &&
                "Binding single descriptor info, but binding expects multiple");
 
         vk::WriteDescriptorSet write;
-        write.descriptorType = bindingDescription.descriptorType;
+        write.descriptorType = binding_description.descriptorType;
         write.dstBinding = binding;
         write.pImageInfo = image_info;
         write.descriptorCount = 1;
