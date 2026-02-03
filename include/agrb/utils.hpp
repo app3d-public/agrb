@@ -4,6 +4,7 @@
  *  Helper device functions
  *****************************************************/
 
+#include <acul/functional/unique_function.hpp>
 #include <acul/pair.hpp>
 #include "device.hpp"
 
@@ -110,8 +111,8 @@ namespace agrb
         vk::DeviceSize size;
         void *data;
 
-        std::function<void(single_time_exec &exec, bool)> on_upload;
-        std::function<void(single_time_exec &, struct buffer &)> on_copy_staging;
+        acul::unique_function<void(single_time_exec &exec, bool)> on_upload;
+        acul::unique_function<void(single_time_exec &, struct buffer &)> on_copy_staging;
 
         bool valid() const { return data && size > 0; }
     };

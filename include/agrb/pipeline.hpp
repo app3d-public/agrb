@@ -1,5 +1,6 @@
 #pragma once
 
+#include <acul/functional/unique_function.hpp>
 #include <acul/io/path.hpp>
 #include <acul/list.hpp>
 #include <acul/memory/destructible.hpp>
@@ -130,7 +131,7 @@ namespace agrb
             pipeline_config<T> config;
             T create_info;
             acul::destructible_data<artifact &> *tmp = nullptr;
-            std::function<void(vk::Pipeline)> commit = nullptr;
+            acul::unique_function<void(vk::Pipeline)> commit = nullptr;
         };
 
         template <typename T>
