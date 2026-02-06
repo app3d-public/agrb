@@ -217,7 +217,8 @@ namespace agrb
          *
          * @param success A boolean indicating the success status.
          */
-        virtual void response(bool success) = 0;
+        virtual void response(bool success, const vk::PhysicalDevice *device,
+                              vk::DispatchLoaderDynamic &loader) = 0;
     };
 
     class device_create_ctx

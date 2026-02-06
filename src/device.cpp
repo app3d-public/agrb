@@ -216,17 +216,19 @@ namespace agrb
         if (create_ctx->ph_selector)
         {
             auto *device = create_ctx->ph_selector->request(devices);
-            if (device && validate_physical_device(*device, extensions, indices))
+            if (device)
             {
-                physical_device = *device;
-                extensions_optional =
-                    get_supported_opt_ext(physical_device, extensions, create_ctx->device_extensions_optional);
-                runtime_data.properties2.pNext = create_ctx->device_physical_next;
-                runtime_data.properties2.properties = physical_device.getProperties(loader);
-                create_ctx->ph_selector->response(true);
+                if (validate_physical_device(*device, extensions, indices))
+                {
+                    physical_device = *device;
+                    extensions_optional =
+                        get_supported_opt_ext(physical_device, extensions, create_ctx->device_extensions_optional);
+                    runtime_data.properties2.pNext = create_ctx->device_physical_next;
+                    runtime_data.properties2.properties = physical_device.getProperties(loader);
+                }
+                else
+                    create_ctx->ph_selector->response(false, device, loader);
             }
-            else
-                create_ctx->ph_selector->response(false);
         }
 
         if (!physical_device)
@@ -251,6 +253,8 @@ namespace agrb
 
             if (!physical_device) throw acul::runtime_error("Failed to find a suitable GPU");
         }
+
+        if (create_ctx->ph_selector) create_ctx->ph_selector->response(true, &physical_device, loader);
         queues.graphics.family_id = indices[DEVICE_QUEUE_GRAPHICS];
         queues.present.family_id = indices[DEVICE_QUEUE_PRESENT];
         queues.compute.family_id = indices[DEVICE_QUEUE_COMPUTE];

@@ -1,5 +1,6 @@
 #pragma once
-#include <agrb/utils.hpp>
+
+#include "utils/exec.hpp"
 
 namespace agrb
 {
@@ -36,6 +37,9 @@ namespace agrb
     APPLIB_API void generate_texture_mipmaps(single_time_exec &exec, texture &texture);
 
     APPLIB_API bool allocate_texture(texture &texture, vk::ImageViewType image_type, void *pixels, device &device);
+
+    APPLIB_API bool upload_texture_subimage(texture &texture, void *pixels, vk::DeviceSize size,
+                                            vk::Extent3D extent, vk::Offset3D offset, device &device);
 
     inline void destroy_texture(texture &texture, device &device)
     {

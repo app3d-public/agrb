@@ -1,5 +1,5 @@
-#include <agrb/buffer.hpp>
-#include <agrb/utils.hpp>
+#include <agrb/utils/buffer.hpp>
+#include <agrb/utils/image.hpp>
 #include "env.hpp"
 
 using namespace agrb;

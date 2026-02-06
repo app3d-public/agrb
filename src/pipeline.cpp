@@ -51,15 +51,16 @@ namespace agrb
         if (!acul::fs::read_binary(path, code)) return acul::make_op_error(ACUL_OP_READ_ERROR);
         vk::ShaderModuleCreateInfo create_info;
         create_info.setCodeSize(code.size()).setPCode(reinterpret_cast<const u32 *>(code.data()));
-        if (device.vk_device.createShaderModule(&create_info, nullptr, &module, device.loader) != vk::Result::eSuccess)
-            return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
+        auto res = device.vk_device.createShaderModule(&create_info, nullptr, &module, device.loader);
+        if (res != vk::Result::eSuccess) return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
         return acul::make_op_success();
     }
 
-    bool prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
-                                        shader_module &vert, shader_module &frag, device &device)
+    acul::op_result prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
+                                                   shader_module &vert, shader_module &frag, device &device)
     {
-        if (!vert.load(device) || !frag.load(device)) return false;
+        ACUL_TRY(vert.load(device));
+        ACUL_TRY(frag.load(device));
         artifact.config.shader_stages.emplace_back();
         artifact.config.shader_stages.back()
             .setStage(vk::ShaderStageFlagBits::eVertex)
@@ -87,10 +88,10 @@ namespace agrb
             .setSubpass(artifact.config.subpass)
             .setBasePipelineIndex(-1)
             .setBasePipelineHandle(nullptr);
-        return true;
+        return acul::make_op_success();
     }
 
-    APPLIB_API void
+    APPLIB_API acul::op_result
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
                                         const acul::path &shader_path)
@@ -98,7 +99,7 @@ namespace agrb
         artifact.config.pipeline_layout = layout;
         shaders.emplace_back(shader_path);
         auto &comp = shaders.back();
-        comp.load(device);
+        ACUL_TRY(comp.load(device));
         artifact.config.shader_stages.emplace_back();
         artifact.config.shader_stages.back()
             .setStage(vk::ShaderStageFlagBits::eCompute)
@@ -108,5 +109,6 @@ namespace agrb
             .setBasePipelineIndex(-1)
             .setBasePipelineHandle(nullptr)
             .setLayout(artifact.config.pipeline_layout);
+        return acul::make_op_success();
     }
 } // namespace agrb

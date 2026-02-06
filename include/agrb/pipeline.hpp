@@ -233,10 +233,11 @@ namespace agrb
      * @param frag The fragment shader module.
      * @param device The Vulkan device to be used for pipeline creation.
      */
-    APPLIB_API bool prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
-                                                   shader_module &vert, shader_module &frag, device &device);
+    APPLIB_API acul::op_result
+    prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
+                                   shader_module &vert, shader_module &frag, device &device);
 
-    APPLIB_API void
+    APPLIB_API acul::op_result
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
                                         const acul::path &shader_path);

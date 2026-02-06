@@ -1,4 +1,4 @@
-#include <agrb/buffer.hpp>
+#include <agrb/utils/buffer.hpp>
 #include "env.hpp"
 
 using namespace agrb;
@@ -76,7 +76,7 @@ void check_move_to_buffer(device &d)
     unmap_buffer(b, d);
 
     // Defered release
-    buffer::mem_cache cache(b, d);
+    buffer_mem_cache cache(b, d);
     cache.on_free();
     assert(b.vk_buffer == VK_NULL_HANDLE);
 }

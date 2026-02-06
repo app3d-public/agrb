@@ -1,5 +1,6 @@
-#include <agrb/buffer.hpp>
 #include <agrb/texture.hpp>
+#include <agrb/utils/buffer.hpp>
+#include <agrb/utils/image.hpp>
 
 namespace agrb
 {
@@ -153,5 +154,26 @@ namespace agrb
 
         if (!create_sampler(texture, device)) return false;
         return true;
+    }
+
+    bool upload_texture_subimage(texture &texture, void *pixels, vk::DeviceSize size, vk::Extent3D extent,
+                                 vk::Offset3D offset, device &device)
+    {
+        if (!pixels || size == 0) return false;
+
+        gpu_upload_info upload_info;
+        upload_info.data = pixels;
+        upload_info.size = size;
+        upload_info.on_copy_staging = [extent, offset, &texture](single_time_exec &exec, buffer &staging) {
+            transition_image_layout(exec, texture.image, vk::ImageLayout::eShaderReadOnlyOptimal,
+                                    vk::ImageLayout::eTransferDstOptimal, 1);
+            copy_buffer_to_image(exec, staging.vk_buffer, texture.image, 1, extent, offset);
+        };
+        upload_info.on_upload = [&texture](single_time_exec &exec, bool) {
+            transition_image_layout(exec, texture.image, vk::ImageLayout::eTransferDstOptimal,
+                                    vk::ImageLayout::eShaderReadOnlyOptimal, 1);
+        };
+
+        return move_data_to_gpu_buffer_staging(upload_info, device);
     }
 } // namespace agrb
