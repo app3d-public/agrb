@@ -97,7 +97,5 @@ void test_pipeline()
 
     env.d.vk_device.destroyRenderPass(render_pass, nullptr, env.d.loader);
     env.d.vk_device.destroyPipelineLayout(pipeline_layout, nullptr, env.d.loader);
-    vert_shader.destroy(env.d);
-    frag_shader.destroy(env.d);
     destroy_library();
 }

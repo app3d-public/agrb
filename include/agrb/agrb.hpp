@@ -4,6 +4,12 @@
 #include <acul/memory/alloc.hpp>
 #include <vulkan/vulkan.hpp>
 
+#if VK_HEADER_VERSION > 290
+namespace vk
+{
+    using namespace detail;
+}
+#endif
 
 namespace agrb
 {

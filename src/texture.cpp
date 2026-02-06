@@ -1,6 +1,7 @@
 #include <agrb/texture.hpp>
 #include <agrb/utils/buffer.hpp>
 #include <agrb/utils/image.hpp>
+#include <cmath>
 
 namespace agrb
 {

@@ -112,7 +112,11 @@ namespace agrb
          *
          * @param device The Vulkan device that contains the shader module.
          */
-        void destroy(device &device) { device.vk_device.destroyShaderModule(module, nullptr, device.loader); }
+        void destroy(device &device)
+        {
+            device.vk_device.destroyShaderModule(module, nullptr, device.loader);
+            module = nullptr;
+        }
     };
 
     using shader_list = acul::vector<shader_module>;

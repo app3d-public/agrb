@@ -14,13 +14,6 @@
 #include "agrb.hpp"
 #include "pool.hpp"
 
-#if VK_HEADER_VERSION > 290
-namespace vk
-{
-    using namespace detail;
-}
-#endif
-
 namespace agrb
 {
     /// @brief Swapchain details
