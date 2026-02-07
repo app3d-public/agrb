@@ -330,6 +330,13 @@ namespace agrb
             _size = count;
         }
 
+        bool defragment()
+        {
+            assert(is_inited());
+            _data.instance_count = acul::get_growth_size_aligned(static_cast<u32>(_size));
+            return reallocate(false);
+        }
+
     private:
         device *_device = nullptr;
         device_runtime_data *_rd = nullptr;
@@ -377,16 +384,37 @@ namespace agrb
             auto create_info =
                 make_alloc_info(_data.vma_usage, _data.required_flags, _data.prefered_flags, _data.priority);
             if (!allocate_buffer(new_buffer, create_info, _data.buffer_usage, *_device)) return false;
-            if (_data.vk_buffer) copy_buffer(*_device, _data.vk_buffer, new_buffer.vk_buffer, get_required_mem(_size));
             if (!map_buffer(new_buffer, *_device))
             {
                 destroy_buffer(new_buffer, *_device);
                 return false;
             }
+            if (_data.mapped && _size > 0)
+                write_to_buffer(new_buffer, _data.mapped, get_required_mem(_size));
             destroy_buffer(_data, *_device);
             _data = new_buffer;
             return true;
         }
     };
 
+    template <typename T>
+    void make_vector_staging_request_callback(agrb::vector<T> &vector,
+                                              acul::unique_function<bool(void *, vk::DeviceSize)> &callback)
+    {
+        callback = [&vector](void *data, vk::DeviceSize request_size) {
+            assert(data && request_size % sizeof(T) == 0);
+            const auto request_count = static_cast<size_t>(request_size / sizeof(T));
+
+            if (request_count > 0 && vector.capacity() > request_count * 8)
+            {
+                if (!vector.resize(request_count)) return false;
+                if (!vector.defragment()) return false;
+            }
+            else if (!vector.resize(request_count))
+                return false;
+
+            if (request_size > 0) write_to_buffer(vector.data(), data, request_size);
+            return true;
+        };
+    }
 } // namespace agrb

@@ -201,10 +201,12 @@ namespace agrb
     {
         VmaAllocation allocation;
         vk::DeviceSize size;
-        void *data;
+        void *data = nullptr;
+        buffer* staging = nullptr;
 
         acul::unique_function<void(single_time_exec &exec, bool)> on_upload;
         acul::unique_function<void(single_time_exec &, struct buffer &)> on_copy_staging;
+        acul::unique_function<bool(void *, vk::DeviceSize)> on_staging_request;
 
         bool valid() const { return data && size > 0; }
     };
