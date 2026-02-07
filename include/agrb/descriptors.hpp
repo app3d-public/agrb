@@ -9,7 +9,6 @@
 #include <acul/memory/smart_ptr.hpp>
 #include "device.hpp"
 
-
 namespace agrb
 {
     /// @brief Wrapper for creating a descriptor set layout
@@ -158,10 +157,10 @@ namespace agrb
 
         /// @brief Free allocate descriptor sets by specified acul::vector of descriptors
         /// @param descriptors acul::vector of descriptors
-        void free_descriptors(acul::vector<vk::DescriptorSet> &descriptors) const
+        bool free_descriptors(acul::vector<vk::DescriptorSet> &descriptors) const
         {
-            _device.vk_device.freeDescriptorSets(_descriptor_pool, static_cast<u32>(descriptors.size()),
-                                                 descriptors.data(), _device.loader);
+            return _device.vk_device.freeDescriptorSets(_descriptor_pool, static_cast<u32>(descriptors.size()),
+                                                        descriptors.data(), _device.loader) == vk::Result::eSuccess;
         }
 
         /// @brief Reset descriptor pool

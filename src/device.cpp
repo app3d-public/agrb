@@ -88,6 +88,10 @@ namespace agrb
     void device_initializer::init(const acul::string &app_name, u32 version)
     {
         create_instance(app_name, version);
+#ifndef NDEBUG
+        if (create_ctx->debug_configurator) setup_debug_messenger();
+#endif
+
         if (create_ctx->present_ctx)
         {
             if (create_ctx->present_ctx->create_surface(instance, surface, loader) != vk::Result::eSuccess)

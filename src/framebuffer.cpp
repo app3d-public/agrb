@@ -79,9 +79,9 @@ namespace agrb
 
         *create_info.pSwapchain = dev.vk_device.createSwapchainKHR(khr_create_info, nullptr, dev.loader);
         auto new_images = dev.vk_device.getSwapchainImagesKHR(*create_info.pSwapchain, dev.loader);
-        auto &images = create_info.pAttachments->images;
         create_info.pAttachments->image_count = new_images.size();
         create_info.pAttachments->images = acul::alloc_n<fb_image_slot>(new_images.size());
+        auto *images = create_info.pAttachments->images;
         for (int i = 0; i < new_images.size(); ++i)
         {
             images[i].attachments.resize(create_info.pAttachments->attachment_count);

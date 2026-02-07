@@ -51,6 +51,12 @@ namespace agrb
         acul::release(attachments);
     }
 
+    inline void detach_images(fb_attachments *attachments)
+    {
+        if (!attachments) return;
+        for (u32 i = 0; i < attachments->image_count; i++) attachments->images[i].attachments.front().image = nullptr;
+    }
+
     struct framebuffer
     {
         acul::paos<vk::RenderPass> rp_group;
@@ -71,6 +77,8 @@ namespace agrb
         fb.rp_group.deallocate();
         acul::release(fb.clear_values);
         destroy_fb_attachments(fb.attachments, dev);
+        fb.attachments = nullptr;
+        fb.clear_values = nullptr;
     }
 
     struct swapchain_create_info
@@ -108,9 +116,8 @@ namespace agrb
 
     APPLIB_API void create_swapchain(swapchain_create_info &create_info);
 
-    inline void destroy_swapchain(fb_attachments *attachments, vk::SwapchainKHR swapchain, device &dev)
+    inline void destroy_swapchain(vk::SwapchainKHR swapchain, device &dev)
     {
-        for (u32 i = 0; i < attachments->image_count; i++) attachments->images[i].attachments.front().image = nullptr;
         dev.vk_device.destroySwapchainKHR(swapchain, nullptr, dev.loader);
     }
 
