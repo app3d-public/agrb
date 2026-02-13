@@ -5,7 +5,11 @@
 #include <acul/list.hpp>
 #include <acul/memory/destructible.hpp>
 #include <acul/op_result.hpp>
+#include <umbf/umbf.hpp>
 #include "device.hpp"
+
+#define AGRB_TYPE_ID_SHADER 0x7559
+#define AGRB_SIGN_ID_SHADER 0x78C7C6EC
 
 namespace agrb
 {
@@ -83,6 +87,14 @@ namespace agrb
     {
     };
 
+    struct shader_block final : umbf::Block
+    {
+        u64 id;
+        acul::vector<char> code;
+
+        virtual u32 signature() const override { return AGRB_SIGN_ID_SHADER; }
+    };
+
     /**
      * @brief Struct to represent a Vulkan shader module.
      *
@@ -91,9 +103,8 @@ namespace agrb
      */
     struct APPLIB_API shader_module
     {
-        acul::string path;       ///< Path to the shader file.
-        vk::ShaderModule module; ///< Vulkan shader module object.
-        acul::vector<char> code; ///< Raw shader code.
+        acul::shared_ptr<shader_block> data; ///< Shader data block.
+        vk::ShaderModule module;             ///< Vulkan shader module object.
 
         /**
          * @brief Load the shader module from the specified device.
@@ -103,7 +114,7 @@ namespace agrb
          *
          * @param device The Vulkan device to load the shader module into.
          */
-        acul::op_result load(device &device);
+        bool load(device &device);
 
         /**
          * @brief Destroy the shader module.
@@ -119,7 +130,50 @@ namespace agrb
         }
     };
 
-    using shader_list = acul::vector<shader_module>;
+    using shader_cache = acul::hashmap<u64, shader_module>;
+
+    /**
+     * @brief Loads a shader library into the given shader cache.
+     *
+     * This function loads a shader library from the given file path into the given shader cache.
+     * If the file cannot be read or if the file is not a valid shader library, then an error is returned.
+     * If a shader with the same ID already exists in the cache, then the shader is replaced with the new one.
+     *
+     * @param library_path The file path to the shader library to load.
+     * @param cache The shader cache to load the shader library into.
+     *
+     * @return An acul::op_result indicating the success or failure of the operation.
+     * If the operation failed, the result contains an acul::op_error with the appropriate error code and domain.
+     */
+    APPLIB_API acul::op_result load_shader_library(const acul::path &library_path, shader_cache &cache);
+
+    /**
+     * @brief Get a shader module from the cache, loading it from the specified library if it isn't already cached.
+     * @param id The ID of the shader module to retrieve.
+     * @param out[out] The shader module to return.
+     * @param cache The cache to use.
+     * @param device The device to load the shader module with.
+     * @param library_path The path to the library to load from if the shader module is not already cached.
+     * @return An op_result indicating success or failure with a code from @ref agrb_op_error_codes.
+     */
+    APPLIB_API acul::op_result get_shader(u64 id, vk::ShaderModule &out, shader_cache &cache, device &device,
+                                          const acul::path &library_path);
+
+    /**
+     * @brief Clear the shader cache by destroying all shader modules and clearing the cache.
+     *
+     * This method destroys all shader modules associated with the given shader cache and clears the cache.
+     * It should be called when the shader cache is no longer needed.
+     *
+     * @param device The device to destroy the shader modules with.
+     * @param cache The shader cache to clear.
+     */
+    inline void clear_shader_cache(agrb::device &device, shader_cache &cache)
+    {
+        for (auto &item : cache)
+            if (item.second.module) item.second.destroy(device);
+        cache.clear();
+    }
 
     template <typename T>
     struct pipeline_batch;
@@ -147,15 +201,14 @@ namespace agrb
         template <>
         struct pipeline_artifact_configure<vk::GraphicsPipelineCreateInfo>
         {
-            using callback_type = bool (*)(artifact<vk::GraphicsPipelineCreateInfo> &, shader_list &, vk::RenderPass,
+            using callback_type = bool (*)(artifact<vk::GraphicsPipelineCreateInfo> &, vk::RenderPass,
                                            vk::PipelineLayout &, device &);
         };
 
         template <>
         struct pipeline_artifact_configure<vk::ComputePipelineCreateInfo>
         {
-            using callback_type = bool (*)(artifact<vk::ComputePipelineCreateInfo> &, shader_list &,
-                                           vk::PipelineLayout &, device &);
+            using callback_type = bool (*)(artifact<vk::ComputePipelineCreateInfo> &, vk::PipelineLayout &, device &);
         };
     } // namespace details
 
@@ -174,7 +227,6 @@ namespace agrb
         using artifact = details::artifact<T>;
         using PFN_configure_artifact = typename details::pipeline_artifact_configure<create_info>::callback_type;
         acul::list<artifact> artifacts; ///< Stores configurations for each pipeline.
-        shader_list shaders;            ///< Shader modules associated with the pipelines.
         vk::PipelineCache cache;        ///< Pipeline cache used for pipeline creation.
 
         /**
@@ -201,7 +253,6 @@ namespace agrb
             else
                 res = device.vk_device.createComputePipelines(cache, size, create_info, nullptr, pipelines,
                                                               device.loader);
-            for (auto &shader : shaders) shader.destroy(device);
             if (res != vk::Result::eSuccess) return false;
 
             it = artifacts.begin();
@@ -233,16 +284,21 @@ namespace agrb
      *
      * @param config The pipeline configuration to be filled in.
      * @param create_info The create info structure for the graphics pipeline.
-     * @param vert The vertex shader module.
-     * @param frag The fragment shader module.
+     * @param shaders An array of shader modules to be used in the pipeline as [vertex, fragment].
      * @param device The Vulkan device to be used for pipeline creation.
      */
-    APPLIB_API acul::op_result
-    prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
-                                   shader_module &vert, shader_module &frag, device &device);
+    APPLIB_API void prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
+                                                   vk::ShaderModule *shaders, device &device);
 
-    APPLIB_API acul::op_result
+    APPLIB_API void
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
-                                        agrb::shader_list &shaders, vk::PipelineLayout &layout, agrb::device &device,
-                                        const acul::path &shader_path);
+                                        vk::PipelineLayout &layout, agrb::device &device,
+                                        const vk::ShaderModule &shader);
+
+    namespace streams
+    {
+        APPLIB_API void write_shader(acul::bin_stream &stream, umbf::Block *block);
+        APPLIB_API umbf::Block *read_shader(acul::bin_stream &stream);
+        inline umbf::streams::Stream shader = {read_shader, write_shader};
+    } // namespace streams
 } // namespace agrb

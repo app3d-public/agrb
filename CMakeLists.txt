@@ -13,6 +13,8 @@ if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
 
+gen_version_file(${CMAKE_CURRENT_BINARY_DIR}/include/${PROJECT_NAME}/version.h)
+
 add_files(${PROJECT_NAME} RECURSE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/vk_mem_alloc.cpp PROPERTIES
     COMPILE_FLAGS "-w"
@@ -20,15 +22,17 @@ set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/vk_mem_alloc.cpp PRO
 add_library(${PROJECT_NAME} SHARED ${AGRB_SRC})
 target_compile_definitions(${PROJECT_NAME} PRIVATE APPLIB_BUILD)
 target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/3rd-party/vma/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 if(PROJECT_IS_TOP_LEVEL)
     add_subdirectory(modules/acul)
+    add_subdirectory(modules/umbf)
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE acul)
+target_link_libraries(${PROJECT_NAME} PUBLIC acul umbf)
 
 if(WIN32)
     if(DEFINED ENV{VK_SDK_PATH})
@@ -62,6 +66,10 @@ set_target_properties(${PROJECT_NAME}
 if(BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if((NOT DEFINED BUILD_TOOLS OR BUILD_TOOLS) OR BUILD_TESTS)
+    add_subdirectory(tools/s2u)
 endif()
 
 if(WIN32)

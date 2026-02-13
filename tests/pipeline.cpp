@@ -1,7 +1,54 @@
 #include <agrb/pipeline.hpp>
+#include <acul/hash/hashmap.hpp>
 #include "env.hpp"
 
 using namespace agrb;
+
+using shader_block_cache = acul::hashmap<u64, acul::shared_ptr<shader_block>>;
+
+static shader_block_cache load_shader_cache(const acul::string &library_path)
+{
+    umbf::streams::HashResolver resolver;
+    resolver.streams.emplace(static_cast<u32>(umbf::sign_block::library), &umbf::streams::library);
+    resolver.streams.emplace(static_cast<u32>(AGRB_TYPE_ID_SHADER), &agrb::streams::shader);
+    resolver.streams.emplace(static_cast<u32>(AGRB_SIGN_ID_SHADER), &agrb::streams::shader);
+    auto *prev_resolver = umbf::streams::resolver;
+    umbf::streams::resolver = &resolver;
+
+    acul::shared_ptr<umbf::File> asset;
+    auto load_res = umbf::File::read_from_disk(library_path, asset);
+
+    umbf::streams::resolver = prev_resolver;
+
+    assert(load_res.success());
+    assert(asset);
+    assert(asset->header.type_sign == umbf::sign_block::format::library);
+
+    shader_block_cache cache;
+    assert(!asset->blocks.empty());
+    auto library = acul::dynamic_pointer_cast<umbf::Library>(asset->blocks.front());
+    assert(library);
+
+    auto append_blocks = [&](const acul::vector<acul::shared_ptr<umbf::Block>> &blocks) {
+        for (const auto &block : blocks)
+        {
+            if (!block) continue;
+            auto sign = block->signature();
+            if (sign != AGRB_SIGN_ID_SHADER) continue;
+            auto shader = acul::static_pointer_cast<shader_block>(block);
+            cache.emplace(shader->id, shader);
+        }
+    };
+
+    assert(!library->file_tree.asset.blocks.empty() || !library->file_tree.children.empty());
+    append_blocks(library->file_tree.asset.blocks);
+    for (const auto &node : library->file_tree.children)
+    {
+        if (node.is_folder) continue;
+        append_blocks(node.asset.blocks);
+    }
+    return cache;
+}
 
 void test_pipeline()
 {
@@ -10,18 +57,29 @@ void test_pipeline()
     init_environment(env);
 
     graphics_pipeline_batch batch;
-    batch.shaders.resize(2);
-    auto &vert_shader = batch.shaders[0];
-    auto &frag_shader = batch.shaders[1];
+    shader_module vert_shader;
+    shader_module frag_shader;
 
     const char *data_dir = getenv("TEST_DATA_DIR");
     assert(data_dir);
     acul::path p = data_dir;
-    vert_shader.path = p / "vs_test.spv";
-    frag_shader.path = p / "fs_test.spv";
+    auto cache = load_shader_cache((p / "test_shaders.umlib").str());
+    const u64 vs_id = 0x063E992A01000000ULL;
+    const u64 fs_id = 0x063E992A02000000ULL;
+    for (auto &item : cache)
+        std::fprintf(stderr, "cache id: 0x%016llX\n", static_cast<unsigned long long>(item.first));
+    std::fprintf(stderr, "expect vs=0x%016llX fs=0x%016llX\n", static_cast<unsigned long long>(vs_id),
+                 static_cast<unsigned long long>(fs_id));
+    std::fflush(stderr);
+    auto vs_it = cache.find(vs_id);
+    auto fs_it = cache.find(fs_id);
+    assert(vs_it != cache.end());
+    assert(fs_it != cache.end());
+    vert_shader.data = vs_it->second;
+    frag_shader.data = fs_it->second;
 
-    assert(vert_shader.load(env.d).success());
-    assert(frag_shader.load(env.d).success());
+    assert(vert_shader.load(env.d));
+    assert(frag_shader.load(env.d));
 
     batch.artifacts.emplace_back();
     auto &artifact = batch.artifacts.back();
@@ -92,7 +150,8 @@ void test_pipeline()
         assert(pipeline);
         env.d.vk_device.destroyPipeline(pipeline, nullptr, env.d.loader);
     };
-    prepare_base_graphics_pipeline(artifact, batch.shaders[0], batch.shaders[1], env.d);
+    vk::ShaderModule shader_stages[2] = {vert_shader.module, frag_shader.module};
+    prepare_base_graphics_pipeline(artifact, shader_stages, env.d);
     assert(batch.allocate_pipelines(env.d, 1));
 
     env.d.vk_device.destroyRenderPass(render_pass, nullptr, env.d.loader);

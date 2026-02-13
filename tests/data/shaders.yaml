@@ -1,0 +1,8 @@
+test:
+  test:
+    id: 0x063E992A
+    stages:
+      - vs:
+          src: "test.vert"
+      - fs:
+          src: "test.frag"
