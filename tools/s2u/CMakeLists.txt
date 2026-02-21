@@ -9,4 +9,7 @@ endif()
 
 add_executable(agrb_s2u main.cpp)
 target_link_libraries(agrb_s2u PRIVATE agrb args)
-set_target_properties(agrb_s2u PROPERTIES CXX_EXTENSIONS YES)
+set_target_properties(agrb_s2u PROPERTIES
+    CXX_EXTENSIONS YES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tools"
+)

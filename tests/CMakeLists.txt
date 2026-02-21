@@ -66,7 +66,11 @@ endforeach()
 
 add_custom_command(
     OUTPUT ${TEST_SHADER_UMLIB}
-    COMMAND $<TARGET_FILE:agrb_s2u> --input ${TEST_SHADER_NAMESPACE_DIR} --output ${TEST_SHADER_UMLIB}
+    COMMAND "${CMAKE_COMMAND}" -E env
+            "PATH=$<TARGET_FILE_DIR:agrb_s2u>;$<TARGET_FILE_DIR:agrb>;$ENV{PATH}"
+            "$<TARGET_FILE:agrb_s2u>"
+            --input ${TEST_SHADER_NAMESPACE_DIR}
+            --output ${TEST_SHADER_UMLIB}
     DEPENDS ${TEST_SHADER_SPV_FILES} agrb_s2u
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     COMMENT "Packing shaders into ${TEST_SHADER_UMLIB}"
