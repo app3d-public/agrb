@@ -519,11 +519,39 @@ def build_cmd_line(compiler: str, source_path: Path, output_path: Path, includes
     return " ".join(cmd)
 
 
+def write_if_changed(path: Path, content: str) -> None:
+    if path.exists():
+        current = path.read_text(encoding="utf-8")
+        if current == content:
+            return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def cleanup_stale_outputs(ns_build_dir: Path, jobs: list[Job]) -> None:
+    expected_spv = {job.output_path.resolve() for job in jobs}
+    expected_cmd = {job.cmd_path.resolve() for job in jobs}
+
+    if not ns_build_dir.exists():
+        return
+
+    for old_spv in ns_build_dir.glob("*.spv"):
+        if old_spv.resolve() not in expected_spv:
+            old_spv.unlink(missing_ok=True)
+
+    for old_cmd in ns_build_dir.glob("*.spv.cmd"):
+        if old_cmd.resolve() not in expected_cmd:
+            old_cmd.unlink(missing_ok=True)
+
+
 def write_job_files(jobs: list[Job], compiler: str, ns_build_dir: Path) -> None:
     ns_build_dir.mkdir(parents=True, exist_ok=True)
     for job in jobs:
         line = build_cmd_line(compiler, job.source_path, job.output_path, job.includes, job.compiler_flags)
-        job.cmd_path.write_text(line + "\n", encoding="utf-8")
+        if sys.platform.startswith("win"):
+            write_if_changed(job.cmd_path, "@echo off\n" + line + "\n")
+        else:
+            write_if_changed(job.cmd_path, line + "\n")
 
 
 def dep_escape(path: Path) -> str:
@@ -564,12 +592,10 @@ def generate_header(path: Path, namespace: str, variant_bits: dict[str, int], sh
                 lines.append(f"#define {macro} 0x{value:016X}ULL")
 
     lines.append("")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("\n".join(lines), encoding="utf-8")
+    write_if_changed(path, "\n".join(lines))
 
 
 def write_depfile(depfile_path: Path, jobs: list[Job], yaml_deps: set[Path], header_path: Path) -> None:
-    depfile_path.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     all_source_deps = set(yaml_deps)
 
@@ -579,17 +605,17 @@ def write_depfile(depfile_path: Path, jobs: list[Job], yaml_deps: set[Path], hea
         deps_joined = " ".join(dep_escape(p) for p in sorted(srcs | yaml_deps))
         lines.append(f"{dep_escape(job.output_path)} {dep_escape(job.cmd_path)}: {deps_joined}")
 
-    aggregate_targets = [depfile_path, header_path]
+    stamp_path = (depfile_path.parent / ".spv.stamp").resolve()
+    aggregate_targets = [depfile_path, header_path, stamp_path]
     aggregate_deps = " ".join(dep_escape(p) for p in sorted(all_source_deps))
     lines.append(f"{' '.join(dep_escape(t) for t in aggregate_targets)}: {aggregate_deps}")
-    depfile_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    write_if_changed(depfile_path, "\n".join(lines) + "\n")
 
 
 def write_aggregate_depfile(depfile_path: Path, target_path: Path, deps: set[Path]) -> None:
-    depfile_path.parent.mkdir(parents=True, exist_ok=True)
-    depfile_path.write_text(
+    write_if_changed(
+        depfile_path,
         f"{dep_escape(target_path)}: {' '.join(dep_escape(p) for p in sorted(deps))}\n",
-        encoding="utf-8",
     )
 
 
@@ -642,6 +668,7 @@ def main() -> int:
             ns_build_dir=ns_build_dir,
             compiler_flags_global=compiler_flags_global,
         )
+        cleanup_stale_outputs(ns_build_dir, jobs)
         write_job_files(jobs, compiler=compiler, ns_build_dir=ns_build_dir)
         generate_header(header_path, namespace=namespace, variant_bits=variant_bits, shaders=shaders)
         write_depfile(depfile_path, jobs, env_deps | manifest_deps, header_path)

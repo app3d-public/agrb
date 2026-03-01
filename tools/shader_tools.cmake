@@ -102,6 +102,7 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
     set(SHADERS_ENV_FILE "${ENV_MANIFEST}")
     set(SHADERS_BUILDER "${AGRB_SHADER_TOOLS_DIR}/shader_builder.py")
     set(SHADERS_RUN_CMDS "${AGRB_SHADER_TOOLS_DIR}/run_shader_cmds.cmake")
+    set(SHADERS_RUN_PACK "${AGRB_SHADER_TOOLS_DIR}/run_pack_cmd.cmake")
     set(SHADERS_OUT_ROOT "${OUT_DIR}")
     set(SHADERS_BUILD_ROOT "${ADD_SHADERS_BUILD_DIR}")
     set(SHADERS_GEN_DEPFILE "${SHADERS_BUILD_ROOT}/agrb_shaders_all.d")
@@ -129,7 +130,6 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
     add_custom_command(
         OUTPUT "${SHADERS_GEN_STAMP}"
         BYPRODUCTS ${SHADERS_GROUP_HEADERS} ${SHADERS_GROUP_DEPFILES}
-        COMMAND "${CMAKE_COMMAND}" -E rm -rf "${SHADERS_BUILD_ROOT}"
         COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADERS_BUILD_ROOT}"
         COMMAND "${Python3_EXECUTABLE}" "${SHADERS_BUILDER}"
                 --env "${SHADERS_ENV_FILE}"
@@ -157,9 +157,9 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
 
         add_custom_command(
             OUTPUT "${GROUP_STAMP}"
-            COMMAND "${CMAKE_COMMAND}" -DBUILD_DIR=${GROUP_BUILD_DIR} -P "${SHADERS_RUN_CMDS}"
-            COMMAND "${CMAKE_COMMAND}" -E touch "${GROUP_STAMP}"
-            DEPENDS ${SHADERS_GEN_TARGET} "${GROUP_HEADER}" "${GROUP_DEPFILE}"
+            COMMAND "${CMAKE_COMMAND}" -DBUILD_DIR=${GROUP_BUILD_DIR} -DDEPFILE=${GROUP_DEPFILE} -DSTAMP_FILE=${GROUP_STAMP} -P "${SHADERS_RUN_CMDS}"
+            DEPENDS "${GROUP_HEADER}" "${GROUP_DEPFILE}"
+            DEPFILE "${GROUP_DEPFILE}"
             WORKING_DIRECTORY "${ADD_SHADERS_WORKING_DIRECTORY}"
             COMMENT "Compiling shaders for ${NS} (${ADD_SHADERS_TARGET_PREFIX})"
             VERBATIM
@@ -168,11 +168,14 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
         add_custom_command(
             OUTPUT "${GROUP_LIBRARY}"
             COMMAND "${CMAKE_COMMAND}" -E make_directory "${SHADERS_OUT_ROOT}"
-            COMMAND "${CMAKE_COMMAND}" -E env
-                    "PATH=$<TARGET_FILE_DIR:${ADD_SHADERS_S2U_TARGET}>;$<TARGET_FILE_DIR:agrb>;$ENV{PATH}"
-                    "$<TARGET_FILE:${ADD_SHADERS_S2U_TARGET}>"
-                    -i "${GROUP_BUILD_DIR}"
-                    -o "${GROUP_LIBRARY}"
+            COMMAND "${CMAKE_COMMAND}" -E echo "Running pack command: $<TARGET_FILE:${ADD_SHADERS_S2U_TARGET}> -i ${GROUP_BUILD_DIR} -o ${GROUP_LIBRARY}"
+            COMMAND "${CMAKE_COMMAND}"
+                    -DS2U_EXE=$<TARGET_FILE:${ADD_SHADERS_S2U_TARGET}>
+                    -DINPUT_DIR=${GROUP_BUILD_DIR}
+                    -DOUTPUT_FILE=${GROUP_LIBRARY}
+                    -DS2U_DIR=$<TARGET_FILE_DIR:${ADD_SHADERS_S2U_TARGET}>
+                    -DAGRB_DIR=$<TARGET_FILE_DIR:agrb>
+                    -P "${SHADERS_RUN_PACK}"
             DEPENDS "${GROUP_STAMP}" ${ADD_SHADERS_S2U_TARGET}
             COMMENT "Packing ${NS} shaders (${ADD_SHADERS_TARGET_PREFIX})"
             VERBATIM
