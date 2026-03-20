@@ -89,7 +89,7 @@ namespace agrb
     };
 
     template <vk::CommandBufferLevel Level>
-    struct cmd_buf_alloc
+    struct command_buffer_allocation
     {
         vk::Device *device;
         vk::CommandPool *command_pool;
@@ -108,11 +108,16 @@ namespace agrb
         }
     };
 
+    using primary_command_buffer_pool =
+        resource_pool<vk::CommandBuffer, command_buffer_allocation<vk::CommandBufferLevel::ePrimary>>;
+    using secondary_command_buffer_pool =
+        resource_pool<vk::CommandBuffer, command_buffer_allocation<vk::CommandBufferLevel::eSecondary>>;
+
     struct command_pool
     {
         vk::CommandPool vk_pool;
-        resource_pool<vk::CommandBuffer, cmd_buf_alloc<vk::CommandBufferLevel::ePrimary>> primary;
-        resource_pool<vk::CommandBuffer, cmd_buf_alloc<vk::CommandBufferLevel::eSecondary>> secondary;
+        primary_command_buffer_pool primary;
+        secondary_command_buffer_pool secondary;
     };
 
     struct queue_family_info
@@ -210,8 +215,7 @@ namespace agrb
          *
          * @param success A boolean indicating the success status.
          */
-        virtual void response(bool success, const vk::PhysicalDevice *device,
-                              vk::DispatchLoaderDynamic &loader) = 0;
+        virtual void response(bool success, const vk::PhysicalDevice *device, vk::DispatchLoaderDynamic &loader) = 0;
     };
 
     class device_create_ctx

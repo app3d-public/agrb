@@ -19,7 +19,7 @@ namespace agrb
     {
         for (const auto &mode : available_modes)
             if (mode == vk::PresentModeKHR::eMailbox) return mode;
-        return vk::PresentModeKHR::eImmediate;
+        return vk::PresentModeKHR::eFifo;
     }
 
     static inline vk::Extent2D choose_swapchain_extent(const vk::SurfaceCapabilitiesKHR &capabilities,
