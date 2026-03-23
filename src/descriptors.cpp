@@ -5,14 +5,27 @@ namespace agrb
 {
     // *************** Descriptor Set Layout *********************
 
-    descriptor_set_layout::descriptor_set_layout(device &device,
-                                                 const acul::hashmap<u32, vk::DescriptorSetLayoutBinding> &bindings)
+    descriptor_set_layout::descriptor_set_layout(device &device, const acul::hashmap<u32, descriptor_binding> &bindings)
         : _device(device), _bindings{bindings}
     {
         acul::vector<vk::DescriptorSetLayoutBinding> set_layout_bindings{};
-        for (auto kv : bindings) set_layout_bindings.push_back(kv.second);
+        acul::vector<vk::DescriptorBindingFlags> set_layout_binding_flags{};
+        bool has_binding_flags = false;
+        for (auto kv : bindings)
+        {
+            const auto &binding = kv.second;
+            set_layout_bindings.push_back(binding.layout);
+            set_layout_binding_flags.push_back(binding.flags);
+            has_binding_flags = has_binding_flags || binding.flags != vk::DescriptorBindingFlags{};
+        }
         vk::DescriptorSetLayoutCreateInfo layout_info;
         layout_info.setBindingCount(set_layout_bindings.size()).setPBindings(set_layout_bindings.data());
+        vk::DescriptorSetLayoutBindingFlagsCreateInfo flags_info{};
+        if (has_binding_flags)
+        {
+            flags_info.setBindingCount(set_layout_binding_flags.size()).setPBindingFlags(set_layout_binding_flags.data());
+            layout_info.setPNext(&flags_info);
+        }
         if (_device.vk_device.createDescriptorSetLayout(&layout_info, nullptr, &_descriptor_set_layout,
                                                         _device.loader) != vk::Result::eSuccess)
             throw acul::runtime_error("Failed to create descriptor set layout");
@@ -37,7 +50,7 @@ namespace agrb
     descriptor_writer &descriptor_writer::write_buffer(u32 binding, vk::DescriptorBufferInfo *buffer_info)
     {
         assert(_set_layout._bindings.count(binding) == 1 && "Layout does not contain specified binding");
-        const auto &binding_description = _set_layout._bindings[binding];
+        const auto &binding_description = _set_layout._bindings[binding].layout;
         assert(binding_description.descriptorCount == 1 &&
                "Binding single descriptor info, but binding expects multiple");
 
@@ -54,7 +67,7 @@ namespace agrb
     descriptor_writer &descriptor_writer::write_image(u32 binding, vk::DescriptorImageInfo *image_info)
     {
         assert(_set_layout._bindings.count(binding) == 1 && "Layout does not contain specified binding");
-        const auto &binding_description = _set_layout._bindings[binding];
+        const auto &binding_description = _set_layout._bindings[binding].layout;
         assert(binding_description.descriptorCount == 1 &&
                "Binding single descriptor info, but binding expects multiple");
 

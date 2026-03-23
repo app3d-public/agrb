@@ -11,6 +11,12 @@
 
 namespace agrb
 {
+    struct descriptor_binding
+    {
+        vk::DescriptorSetLayoutBinding layout{};
+        vk::DescriptorBindingFlags flags{};
+    };
+
     /// @brief Wrapper for creating a descriptor set layout
     class APPLIB_API descriptor_set_layout
     {
@@ -28,13 +34,17 @@ namespace agrb
             /// @param descriptor_type Descriptor set type. It must be unique
             /// @param stage_flags Pipeline stage flags that have a access to this binding
             /// @param count Count of bindings
+            /// @param binding_flags Optional descriptor binding flags
             /// @return Self
             builder &add_binding(u32 binding, vk::DescriptorType descriptor_type, vk::ShaderStageFlags stage_flags,
-                                 u32 count = 1)
+                                 u32 count = 1,
+                                 vk::DescriptorBindingFlags binding_flags = {})
             {
                 assert(_bindings.count(binding) == 0 && "Binding already in use");
-                vk::DescriptorSetLayoutBinding layoutBinding(binding, descriptor_type, count, stage_flags);
-                _bindings[binding] = layoutBinding;
+                descriptor_binding value{};
+                value.layout = vk::DescriptorSetLayoutBinding(binding, descriptor_type, count, stage_flags);
+                value.flags = binding_flags;
+                _bindings[binding] = value;
                 return *this;
             }
 
@@ -46,13 +56,13 @@ namespace agrb
             }
 
         private:
-            acul::hashmap<u32, vk::DescriptorSetLayoutBinding> _bindings{};
+            acul::hashmap<u32, descriptor_binding> _bindings{};
         };
 
         /// @brief Create a descriptor set layout
         /// @param device Current device
         /// @param bindings Map of descriptor bindings
-        descriptor_set_layout(device &device, const acul::hashmap<u32, vk::DescriptorSetLayoutBinding> &bindings);
+        descriptor_set_layout(device &device, const acul::hashmap<u32, descriptor_binding> &bindings);
 
         ~descriptor_set_layout()
         {
@@ -69,7 +79,7 @@ namespace agrb
     private:
         device &_device;
         vk::DescriptorSetLayout _descriptor_set_layout;
-        acul::hashmap<u32, vk::DescriptorSetLayoutBinding> _bindings;
+        acul::hashmap<u32, descriptor_binding> _bindings;
 
         friend class descriptor_writer;
     };
