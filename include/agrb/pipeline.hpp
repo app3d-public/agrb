@@ -1,6 +1,7 @@
 #pragma once
 
 #include <acul/functional/unique_function.hpp>
+#include <acul/hash/hashset.hpp>
 #include <acul/io/path.hpp>
 #include <acul/list.hpp>
 #include <acul/memory/destructible.hpp>
@@ -130,50 +131,49 @@ namespace agrb
         }
     };
 
-    using shader_cache = acul::hashmap<u64, shader_module>;
-
-    /**
-     * @brief Loads a shader library into the given shader cache.
-     *
-     * This function loads a shader library from the given file path into the given shader cache.
-     * If the file cannot be read or if the file is not a valid shader library, then an error is returned.
-     * If a shader with the same ID already exists in the cache, then the shader is replaced with the new one.
-     *
-     * @param library_path The file path to the shader library to load.
-     * @param cache The shader cache to load the shader library into.
-     *
-     * @return An acul::op_result indicating the success or failure of the operation.
-     * If the operation failed, the result contains an acul::op_error with the appropriate error code and domain.
-     */
-    APPLIB_API acul::op_result load_shader_library(const acul::path &library_path, shader_cache &cache);
-
-    /**
-     * @brief Get a shader module from the cache, loading it from the specified library if it isn't already cached.
-     * @param id The ID of the shader module to retrieve.
-     * @param out[out] The shader module to return.
-     * @param cache The cache to use.
-     * @param device The device to load the shader module with.
-     * @param library_path The path to the library to load from if the shader module is not already cached.
-     * @return An op_result indicating success or failure with a code from @ref agrb_op_error_codes.
-     */
-    APPLIB_API acul::op_result get_shader(u64 id, vk::ShaderModule &out, shader_cache &cache, device &device,
-                                          const acul::path &library_path);
-
-    /**
-     * @brief Clear the shader cache by destroying all shader modules and clearing the cache.
-     *
-     * This method destroys all shader modules associated with the given shader cache and clears the cache.
-     * It should be called when the shader cache is no longer needed.
-     *
-     * @param device The device to destroy the shader modules with.
-     * @param cache The shader cache to clear.
-     */
-    inline void clear_shader_cache(agrb::device &device, shader_cache &cache)
+    class shader_cache final
     {
-        for (auto &item : cache)
-            if (item.second.module) item.second.destroy(device);
-        cache.clear();
-    }
+    public:
+        /**
+         * @brief Loads a shader library from disk into memory.
+         * @param library_path Path to the shader library on disk.
+         * @return acul::op_result containing an error code if the operation fails.
+         *         If the operation succeeds, the library is loaded into memory and the
+         *         result contains a success code.
+         * @ingroup agrb_shader_cache
+         */
+        APPLIB_API acul::op_result load_shader_library(const acul::path &library_path);
+
+        /**
+         * @brief Retrieves a shader module by ID from the shader cache.
+         *
+         * If the shader is not found in the cache, the function will attempt to load the shader library specified by
+         * `library_path`. If the shader is found in the cache, the function will return the shader module associated
+         * with the ID. If the shader is not found in the cache and the shader library is not loaded successfully, the
+         * function will return an error.
+         *
+         * @param id The ID of the shader module to retrieve.
+         * @param out The shader module retrieved from the cache.
+         * @param device The Vulkan device to use for loading the shader module.
+         * @param library_path The path to the shader library to load if the shader is not found in the cache.
+         * @return An acul::op_result containing the result of the operation. If the operation is successful, the result
+         * will be a success code and the shader module will be stored in `out`. If the operation fails, the result will
+         * contain an error code and a domain.
+         * @ingroup agrb_shader_cache
+         */
+        APPLIB_API acul::op_result get_shader(u64 id, vk::ShaderModule &out, device &device,
+                                              const acul::path &library_path);
+
+        /**
+         * Resets the shader cache, destroying any loaded shaders and clearing the cache.
+         * @param device The device to use for destroying shaders.
+         */
+        APPLIB_API void reset(device &device);
+
+    private:
+        acul::hashmap<u64, shader_module> _shaders;
+        acul::hashmap<acul::string, acul::shared_ptr<umbf::File>> _libraries;
+    };
 
     template <typename T>
     struct pipeline_batch;

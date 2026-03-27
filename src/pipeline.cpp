@@ -104,7 +104,7 @@ namespace agrb
             .setLayout(artifact.config.pipeline_layout);
     }
 
-    static void append_shader_node_to_cache(const umbf::Library::Node &node, shader_cache &cache)
+    static void append_shader_node_to_cache(const umbf::Library::Node &node, acul::hashmap<u64, shader_module> &cache)
     {
         if (node.is_folder)
         {
@@ -125,10 +125,13 @@ namespace agrb
         }
     }
 
-    APPLIB_API acul::op_result load_shader_library(const acul::path &library_path, shader_cache &cache)
+    acul::op_result shader_cache::load_shader_library(const acul::path &library_path)
     {
+        const auto key = library_path.str();
+        if (_libraries.contains(key)) return acul::make_op_success();
+
         acul::shared_ptr<umbf::File> file;
-        ACUL_TRY(umbf::File::read_from_disk(library_path.str(), file));
+        ACUL_TRY(umbf::File::read_from_disk(key, file));
         if (!file) return acul::make_op_error(ACUL_OP_NULLPTR);
         if (file->header.type_sign != umbf::sign_block::format::library || file->blocks.empty())
             return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
@@ -137,19 +140,20 @@ namespace agrb
         if (!root || root->signature() != umbf::sign_block::library) return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
 
         auto library = acul::static_pointer_cast<umbf::Library>(root);
-        append_shader_node_to_cache(library->file_tree, cache);
+        append_shader_node_to_cache(library->file_tree, _shaders);
+        _libraries.emplace(key, std::move(file));
         return acul::make_op_success();
     }
 
-    APPLIB_API acul::op_result get_shader(u64 id, vk::ShaderModule &out, shader_cache &cache, device &device,
-                                          const acul::path &library_path)
+    acul::op_result shader_cache::get_shader(u64 id, vk::ShaderModule &out, device &device,
+                                             const acul::path &library_path)
     {
-        auto it = cache.find(id);
-        if (it == cache.end())
+        auto it = _shaders.find(id);
+        if (it == _shaders.end())
         {
-            ACUL_TRY(load_shader_library(library_path, cache));
-            it = cache.find(id);
-            if (it == cache.end()) return {AGRB_OP_ID_NOT_FOUND, AGRB_OP_DOMAIN};
+            ACUL_TRY(load_shader_library(library_path));
+            it = _shaders.find(id);
+            if (it == _shaders.end()) return {AGRB_OP_ID_NOT_FOUND, AGRB_OP_DOMAIN};
         }
         if (!it->second.data) return acul::make_op_error(ACUL_OP_NULLPTR);
 
@@ -157,6 +161,14 @@ namespace agrb
         if (!shader.module && !shader.load(device)) return {AGRB_OP_GPU_RESOURCE_FAILED, AGRB_OP_DOMAIN};
         out = shader.module;
         return acul::make_op_success();
+    }
+
+    void shader_cache::reset(device &device)
+    {
+        for (auto &item : _shaders)
+            if (item.second.module) item.second.destroy(device);
+        _shaders.clear();
+        _libraries.clear();
     }
 
     namespace streams

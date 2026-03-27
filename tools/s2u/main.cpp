@@ -1,9 +1,9 @@
-﻿#include <args.hxx>
-#include <acul/io/fs/file.hpp>
+﻿#include <acul/io/fs/file.hpp>
 #include <acul/io/fs/path.hpp>
 #include <acul/string/utils.hpp>
 #include <agrb/agrb.hpp>
 #include <agrb/pipeline.hpp>
+#include <args.hxx>
 #include <umbf/umbf.hpp>
 #include <umbf/version.h>
 
@@ -156,7 +156,7 @@ int main(int argc, char **argv)
         shader_node.asset.header.vendor_version = AGRB_VERSION;
         shader_node.asset.header.spec_version = UMBF_VERSION;
         shader_node.asset.header.type_sign = AGRB_TYPE_ID_SHADER;
-        shader_node.asset.header.compressed = false;
+        shader_node.asset.header.flags = 0;
         shader_node.asset.blocks.push_back(acul::static_pointer_cast<umbf::Block>(block));
         library->file_tree.children.push_back(std::move(shader_node));
     }
@@ -166,7 +166,8 @@ int main(int argc, char **argv)
     file.header.vendor_version = UMBF_VERSION;
     file.header.spec_version = UMBF_VERSION;
     file.header.type_sign = umbf::sign_block::format::library;
-    file.header.compressed = cfg.compression > 0;
+    file.header.flags = 0;
+    if (cfg.compression > 0) file.header.flags |= UMBF_COMPRESSION_PAYLOAD_BIT;
     file.blocks.push_back(library);
 
     umbf::streams::HashResolver resolver;
