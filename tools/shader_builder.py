@@ -599,16 +599,12 @@ def write_depfile(depfile_path: Path, jobs: list[Job], yaml_deps: set[Path], hea
     lines: list[str] = []
     all_source_deps = set(yaml_deps)
 
-    for job in jobs:
-        srcs = set(job.include_deps)
-        all_source_deps.update(srcs)
-        deps_joined = " ".join(dep_escape(p) for p in sorted(srcs | yaml_deps))
-        lines.append(f"{dep_escape(job.output_path)} {dep_escape(job.cmd_path)}: {deps_joined}")
-
     stamp_path = (depfile_path.parent / ".spv.stamp").resolve()
-    aggregate_targets = [depfile_path, header_path, stamp_path]
+    for job in jobs:
+        all_source_deps.update(job.include_deps)
+
     aggregate_deps = " ".join(dep_escape(p) for p in sorted(all_source_deps))
-    lines.append(f"{' '.join(dep_escape(t) for t in aggregate_targets)}: {aggregate_deps}")
+    lines.append(f"{dep_escape(stamp_path)}: {aggregate_deps}")
     write_if_changed(depfile_path, "\n".join(lines) + "\n")
 
 
