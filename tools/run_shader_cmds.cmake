@@ -62,14 +62,33 @@ endif()
 
 file(STRINGS "${DEPFILE}" _dep_lines)
 set(_compiled_count 0)
+set(_matched_entry_count 0)
+set(_aggregate_deps_list)
 
 foreach(_line IN LISTS _dep_lines)
     if(_line STREQUAL "")
         continue()
     endif()
+    if(_line MATCHES "\\.spv\\.stamp:")
+        string(FIND "${_line}" ": " _stamp_split_pos)
+        if(NOT _stamp_split_pos EQUAL -1)
+            math(EXPR _stamp_deps_start "${_stamp_split_pos} + 2")
+            string(SUBSTRING "${_line}" ${_stamp_deps_start} -1 _stamp_deps_raw)
+            string(REGEX REPLACE " +" ";" _stamp_dep_tokens "${_stamp_deps_raw}")
+            foreach(_dep IN LISTS _stamp_dep_tokens)
+                if(_dep STREQUAL "")
+                    continue()
+                endif()
+                _shader_unescape("${_dep}" _dep_unescaped)
+                list(APPEND _aggregate_deps_list "${_dep_unescaped}")
+            endforeach()
+        endif()
+        continue()
+    endif()
     if(NOT _line MATCHES "\\.spv(\\.cmd)?:")
         continue()
     endif()
+    math(EXPR _matched_entry_count "${_matched_entry_count} + 1")
 
     string(FIND "${_line}" ": " _split_pos)
     if(_split_pos EQUAL -1)
@@ -137,6 +156,51 @@ foreach(_line IN LISTS _dep_lines)
 
     math(EXPR _compiled_count "${_compiled_count} + 1")
 endforeach()
+
+if(_matched_entry_count EQUAL 0)
+    file(GLOB _fallback_cmd_files "${BUILD_DIR}/*.spv.cmd")
+    foreach(_cmd_file IN LISTS _fallback_cmd_files)
+        string(REGEX REPLACE "\\.cmd$" "" _spv_file "${_cmd_file}")
+        set(_deps_list "${_aggregate_deps_list}")
+        list(APPEND _deps_list "${_cmd_file}")
+        _shader_dep_needs_rebuild("${_spv_file}" "${_deps_list}" _needs_rebuild)
+        if(NOT _needs_rebuild)
+            continue()
+        endif()
+
+        file(STRINGS "${_cmd_file}" _cmd_lines)
+        set(_cmd_line "")
+        foreach(_cmd_entry IN LISTS _cmd_lines)
+            string(STRIP "${_cmd_entry}" _cmd_entry_stripped)
+            if(_cmd_entry_stripped STREQUAL "")
+                continue()
+            endif()
+            if(_cmd_entry_stripped MATCHES "^[ \t]*@echo[ \t]+off[ \t]*$")
+                continue()
+            endif()
+            set(_cmd_line "${_cmd_entry_stripped}")
+        endforeach()
+        message(STATUS "Running shader command: ${_cmd_line}")
+
+        if(WIN32)
+            execute_process(
+                COMMAND cmd /C call "${_cmd_file}"
+                RESULT_VARIABLE _cmd_result
+            )
+        else()
+            execute_process(
+                COMMAND sh "${_cmd_file}"
+                RESULT_VARIABLE _cmd_result
+            )
+        endif()
+
+        if(NOT _cmd_result EQUAL 0)
+            message(FATAL_ERROR "Shader compile command failed: ${_cmd_file}")
+        endif()
+
+        math(EXPR _compiled_count "${_compiled_count} + 1")
+    endforeach()
+endif()
 
 # Update stamp only when something actually changed (or during first build).
 if(_compiled_count GREATER 0 OR NOT EXISTS "${STAMP_FILE}")

@@ -602,6 +602,10 @@ def write_depfile(depfile_path: Path, jobs: list[Job], yaml_deps: set[Path], hea
     stamp_path = (depfile_path.parent / ".spv.stamp").resolve()
     for job in jobs:
         all_source_deps.update(job.include_deps)
+        job_deps = set(yaml_deps)
+        job_deps.update(job.include_deps)
+        job_targets = f"{dep_escape(job.output_path)} {dep_escape(job.cmd_path)}"
+        lines.append(f"{job_targets}: {' '.join(dep_escape(p) for p in sorted(job_deps))}")
 
     aggregate_deps = " ".join(dep_escape(p) for p in sorted(all_source_deps))
     lines.append(f"{dep_escape(stamp_path)}: {aggregate_deps}")

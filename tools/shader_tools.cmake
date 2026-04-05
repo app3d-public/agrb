@@ -158,7 +158,7 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
         add_custom_command(
             OUTPUT "${GROUP_STAMP}"
             COMMAND "${CMAKE_COMMAND}" -DBUILD_DIR=${GROUP_BUILD_DIR} -DDEPFILE=${GROUP_DEPFILE} -DSTAMP_FILE=${GROUP_STAMP} -P "${SHADERS_RUN_CMDS}"
-            DEPENDS "${GROUP_HEADER}" "${GROUP_DEPFILE}"
+            DEPENDS "${GROUP_HEADER}" "${GROUP_DEPFILE}" "${SHADERS_RUN_CMDS}"
             DEPFILE "${GROUP_DEPFILE}"
             WORKING_DIRECTORY "${ADD_SHADERS_WORKING_DIRECTORY}"
             COMMENT "Compiling shaders for ${NS} (${ADD_SHADERS_TARGET_PREFIX})"
@@ -176,7 +176,7 @@ function(add_shaders ENV_MANIFEST SHADERS_MANIFEST OUT_DIR)
                     -DS2U_DIR=$<TARGET_FILE_DIR:${ADD_SHADERS_S2U_TARGET}>
                     -DAGRB_DIR=$<TARGET_FILE_DIR:agrb>
                     -P "${SHADERS_RUN_PACK}"
-            DEPENDS "${GROUP_STAMP}" ${ADD_SHADERS_S2U_TARGET}
+            DEPENDS "${GROUP_STAMP}" ${ADD_SHADERS_S2U_TARGET} "${SHADERS_RUN_PACK}"
             COMMENT "Packing ${NS} shaders (${ADD_SHADERS_TARGET_PREFIX})"
             VERBATIM
         )
