@@ -26,16 +26,24 @@ namespace agrb
                                                        vk::Extent2D extent)
     {
         if (capabilities.currentExtent.width != std::numeric_limits<u32>::max())
-            return capabilities.currentExtent;
-        else
         {
-            vk::Extent2D actual_extent = extent;
-            actual_extent.width = std::max(capabilities.minImageExtent.width,
-                                           std::min(capabilities.maxImageExtent.width, actual_extent.width));
-            actual_extent.height = std::max(capabilities.minImageExtent.height,
-                                            std::min(capabilities.maxImageExtent.height, actual_extent.height));
-            return actual_extent;
+            if (capabilities.currentExtent.width > 0 && capabilities.currentExtent.height > 0)
+                return capabilities.currentExtent;
         }
+
+        vk::Extent2D actual_extent = extent;
+        actual_extent.width = std::max(1u, actual_extent.width);
+        actual_extent.height = std::max(1u, actual_extent.height);
+        actual_extent.width = std::max(capabilities.minImageExtent.width,
+                                       std::min(capabilities.maxImageExtent.width, actual_extent.width));
+        actual_extent.height = std::max(capabilities.minImageExtent.height,
+                                        std::min(capabilities.maxImageExtent.height, actual_extent.height));
+        if (actual_extent.width == 0 || actual_extent.height == 0)
+        {
+            actual_extent.width = std::max(1u, actual_extent.width);
+            actual_extent.height = std::max(1u, actual_extent.height);
+        }
+        return actual_extent;
     }
 
     void create_swapchain(swapchain_create_info &create_info)

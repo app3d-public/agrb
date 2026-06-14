@@ -1,7 +1,7 @@
 #pragma once
 
-#include <acul/api.hpp>
 #include <acul/memory/alloc.hpp>
+#include <agrb/symbol_export.h>
 #include <agrb/version.h>
 #include <vulkan/vulkan.hpp>
 
@@ -21,7 +21,7 @@ namespace agrb
 {
     namespace detail
     {
-        extern APPLIB_API struct device_library
+        extern AGRB_EXPORT struct device_library
         {
             vk::DynamicLoader vklib;
             vk::DispatchLoaderDynamic dispatch_loader;

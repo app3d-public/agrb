@@ -46,7 +46,7 @@ namespace agrb
     /// @param allocation: Allocation for the buffer
     /// @param device Device
     /// @return True on success, false on failure
-    APPLIB_API bool create_buffer(vk::DeviceSize size, vk::BufferUsageFlags vk_usage, vk::Buffer &buffer,
+    AGRB_EXPORT bool create_buffer(vk::DeviceSize size, vk::BufferUsageFlags vk_usage, vk::Buffer &buffer,
                                   VmaAllocationCreateInfo alloc_info, VmaAllocation &allocation, const device &device);
 
     inline bool allocate_buffer(buffer &buffer, VmaAllocationCreateInfo alloc_info, vk::BufferUsageFlags usage_flags,
@@ -236,7 +236,7 @@ namespace agrb
      * @param[in] mem_flags The memory property flags of the allocation.
      * @return True if the upload was successful, false otherwise.
      */
-    APPLIB_API bool copy_data_to_gpu_buffer_host_visible(const gpu_upload_info &upload_info, VmaAllocator &allocator,
+    AGRB_EXPORT bool copy_data_to_gpu_buffer_host_visible(const gpu_upload_info &upload_info, VmaAllocator &allocator,
                                               VkMemoryPropertyFlags mem_flags);
 
     /**
@@ -248,7 +248,7 @@ namespace agrb
      * @param[in] device The device to use for the upload.
      * @return True if the upload was successful, false otherwise.
      */
-    APPLIB_API bool copy_data_to_gpu_buffer_staging(const gpu_upload_info &upload_info, device &device);
+    AGRB_EXPORT bool copy_data_to_gpu_buffer_staging(const gpu_upload_info &upload_info, device &device);
 
     /**
      * Copies data to GPU buffer.
@@ -258,7 +258,7 @@ namespace agrb
      * @param[in] device The device to use for the upload.
      * @return True if the upload was successful, false otherwise.
      */
-    APPLIB_API bool copy_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
+    AGRB_EXPORT bool copy_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
 
     /**
      * Copies data to GPU buffer that is already mapped on the host.
@@ -291,5 +291,5 @@ namespace agrb
      * @param[in] device The device to use for the upload.
      * @return True if the upload was successful, false otherwise.
      */
-    APPLIB_API bool move_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
+    AGRB_EXPORT bool move_data_to_gpu_buffer(const gpu_upload_info &upload_info, device &device);
 } // namespace agrb

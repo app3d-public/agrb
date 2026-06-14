@@ -13,14 +13,14 @@ if(NOT DEFINED ACBT_LOADED)
     include(cmake/utils.cmake)
 endif()
 
-gen_version_file(${CMAKE_CURRENT_BINARY_DIR}/include/${PROJECT_NAME}/version.h)
+create_version_file()
+create_symbol_export_file()
 
 add_files(${PROJECT_NAME} RECURSE "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/src/vk_mem_alloc.cpp PROPERTIES
     COMPILE_FLAGS "-w"
 )
 add_library(${PROJECT_NAME} SHARED ${AGRB_SRC})
-target_compile_definitions(${PROJECT_NAME} PRIVATE APPLIB_BUILD)
 target_include_directories(${PROJECT_NAME} PUBLIC
     ${CMAKE_CURRENT_BINARY_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/modules/3rd-party/vma/include
@@ -55,9 +55,12 @@ endif()
 
 add_definitions(-DVK_NO_PROTOTYPES)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_VISIBILITY_PRESET hidden)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    DEFINE_SYMBOL AGRB_BUILD
+    CXX_VISIBILITY_PRESET hidden
+)
 target_compile_options(${PROJECT_NAME} PRIVATE -fvisibility-inlines-hidden)
-
+target_include_directories(${PROJECT_NAME} PUBLIC ${AGRB_CONFIGURE_PATH})
 set_target_properties(${PROJECT_NAME}
     PROPERTIES
     CXX_EXTENSIONS YES

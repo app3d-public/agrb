@@ -28,7 +28,7 @@ namespace agrb
     using compute_config = pipeline_config<vk::ComputePipelineCreateInfo>;
 
     template <>
-    struct APPLIB_API pipeline_config<vk::GraphicsPipelineCreateInfo> final : pipeline_config_base
+    struct pipeline_config<vk::GraphicsPipelineCreateInfo> final : pipeline_config_base
     {
         vk::PipelineViewportStateCreateInfo viewport_info;
         vk::PipelineInputAssemblyStateCreateInfo input_assembly_info;
@@ -56,7 +56,7 @@ namespace agrb
          *
          * @return Reference to the updated pipeline_config object.
          */
-        pipeline_config &load_defaults();
+        AGRB_EXPORT pipeline_config &load_defaults();
 
         /**
          * @brief Enable alpha blending in the pipeline configuration.
@@ -66,7 +66,7 @@ namespace agrb
          *
          * @return Reference to the updated pipeline_config object.
          */
-        pipeline_config &enable_alpha_blending();
+        AGRB_EXPORT pipeline_config &enable_alpha_blending();
 
         /**
          * @brief Enable multi-sample anti-aliasing (MSAA) in the pipeline configuration.
@@ -102,7 +102,7 @@ namespace agrb
      * This struct contains information about a shader module, including its file path,
      * the Vulkan shader module object, and the shader code.
      */
-    struct APPLIB_API shader_module
+    struct shader_module
     {
         acul::shared_ptr<shader_block> data; ///< Shader data block.
         vk::ShaderModule module;             ///< Vulkan shader module object.
@@ -115,7 +115,7 @@ namespace agrb
          *
          * @param device The Vulkan device to load the shader module into.
          */
-        bool load(device &device);
+        AGRB_EXPORT bool load(device &device);
 
         /**
          * @brief Destroy the shader module.
@@ -142,7 +142,7 @@ namespace agrb
          *         result contains a success code.
          * @ingroup agrb_shader_cache
          */
-        APPLIB_API acul::op_result load_shader_library(const acul::path &library_path);
+        AGRB_EXPORT acul::op_result load_shader_library(const acul::path &library_path);
 
         /**
          * @brief Retrieves a shader module by ID from the shader cache.
@@ -161,14 +161,14 @@ namespace agrb
          * contain an error code and a domain.
          * @ingroup agrb_shader_cache
          */
-        APPLIB_API acul::op_result get_shader(u64 id, vk::ShaderModule &out, device &device,
-                                              const acul::path &library_path);
+        AGRB_EXPORT acul::op_result get_shader(u64 id, vk::ShaderModule &out, device &device,
+                                               const acul::path &library_path);
 
         /**
          * Resets the shader cache, destroying any loaded shaders and clearing the cache.
          * @param device The device to use for destroying shaders.
          */
-        APPLIB_API void reset(device &device);
+        AGRB_EXPORT void reset(device &device);
 
     private:
         acul::hashmap<u64, shader_module> _shaders;
@@ -287,18 +287,16 @@ namespace agrb
      * @param shaders An array of shader modules to be used in the pipeline as [vertex, fragment].
      * @param device The Vulkan device to be used for pipeline creation.
      */
-    APPLIB_API void prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
-                                                   vk::ShaderModule *shaders, device &device);
+    AGRB_EXPORT void prepare_base_graphics_pipeline(pipeline_batch<vk::GraphicsPipelineCreateInfo>::artifact &artifact,
+                                                    vk::ShaderModule *shaders, device &device);
 
-    APPLIB_API void
+    AGRB_EXPORT void
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         vk::PipelineLayout &layout, agrb::device &device,
                                         const vk::ShaderModule &shader);
 
     namespace streams
     {
-        APPLIB_API void write_shader(acul::bin_stream &stream, umbf::Block *block);
-        APPLIB_API umbf::Block *read_shader(acul::bin_stream &stream);
-        inline umbf::streams::Stream shader = {read_shader, write_shader};
+        extern AGRB_EXPORT const umbf::streams::Stream shader;
     } // namespace streams
 } // namespace agrb

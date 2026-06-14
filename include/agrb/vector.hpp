@@ -1,10 +1,23 @@
 #pragma once
 
+#include <acul/enum.hpp>
 #include <iterator>
 #include "utils/buffer.hpp"
 
 namespace agrb
 {
+    struct VectorResultBits
+    {
+        enum enum_type : u8
+        {
+            none = 0x0,
+            success = 0x1,
+            buffer_reallocated = 0x2
+        };
+        using flag_bitmask = std::true_type;
+    };
+    using VectorResultFlags = acul::flags<VectorResultBits>;
+
     template <typename T>
     class vector
     {
@@ -84,30 +97,38 @@ namespace agrb
 
         ~vector() { destroy(); }
 
-        bool reserve(size_type new_capacity)
+        VectorResultFlags reserve(size_type new_capacity)
         {
-            if (new_capacity <= capacity()) return true;
+            if (new_capacity <= capacity()) return VectorResultBits::success;
             _data.instance_count = new_capacity;
-            return reallocate(false);
+            if (!reallocate(false)) return VectorResultBits::none;
+            return VectorResultBits::success | VectorResultBits::buffer_reallocated;
         }
 
-        bool resize(size_type new_size)
+        VectorResultFlags resize(size_type new_size)
         {
             if (new_size > capacity())
             {
                 _data.instance_count = new_size;
-                if (!reallocate(false)) return false;
+                if (!reallocate(false)) return VectorResultBits::none;
+                _size = new_size;
+                return VectorResultBits::success | VectorResultBits::buffer_reallocated;
             }
             _size = new_size;
-            return true;
+            return VectorResultBits::success;
         }
 
-        bool push_back(const_reference value)
+        VectorResultFlags push_back(const_reference value)
         {
-            if (_size >= capacity() && !reallocate(_size + 1)) return false;
+            VectorResultFlags result = VectorResultBits::success;
+            if (_size >= capacity())
+            {
+                if (!reallocate(_size + 1)) return VectorResultBits::none;
+                result |= VectorResultBits::buffer_reallocated;
+            }
             write_to_buffer(_data, (void *)&value, sizeof(value_type), _size * _data.alignment_size);
             ++_size;
-            return true;
+            return result;
         }
 
         void pop_back()
@@ -117,7 +138,7 @@ namespace agrb
         }
 
         template <typename... Args>
-        bool emplace_back(Args &&...args)
+        VectorResultFlags emplace_back(Args &&...args)
         {
             value_type val(std::forward<Args>(args)...);
             return push_back(val);
@@ -330,11 +351,12 @@ namespace agrb
             _size = count;
         }
 
-        bool defragment()
+        VectorResultFlags defragment()
         {
             assert(is_inited());
             _data.instance_count = acul::get_growth_size_aligned(static_cast<u32>(_size));
-            return reallocate(false);
+            if (!reallocate(false)) return VectorResultBits::none;
+            return VectorResultBits::success | VectorResultBits::buffer_reallocated;
         }
 
     private:

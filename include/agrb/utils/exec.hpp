@@ -24,7 +24,6 @@ namespace agrb
             command_buffer.begin(begin_info, loader);
         }
 
-        APPLIB_API vk::Result end();
+        AGRB_EXPORT vk::Result end();
     };
-
 } // namespace agrb

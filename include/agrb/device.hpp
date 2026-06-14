@@ -312,8 +312,8 @@ namespace agrb
 #endif
     };
 
-    APPLIB_API void assign_instance_extensions_default(device_create_ctx *ctx, const acul::set<acul::string> &ext,
-                                                       acul::vector<const char *> &dst);
+    AGRB_EXPORT void assign_instance_extensions_default(device_create_ctx *ctx, const acul::set<acul::string> &ext,
+                                                        acul::vector<const char *> &dst);
 
     inline device_create_ctx::device_create_ctx()
         : fence_pool_size(0),
@@ -341,13 +341,13 @@ namespace agrb
         return agrb::query_swapchain_support(physical_device, surface, loader);
     }
 
-    APPLIB_API void init_device(const acul::string &app_name, u32 version, device &device,
-                                device_create_ctx *create_ctx);
+    AGRB_EXPORT void init_device(const acul::string &app_name, u32 version, device &device,
+                                 device_create_ctx *create_ctx);
 
-    APPLIB_API void destroy_device(device &device);
+    AGRB_EXPORT void destroy_device(device &device);
 
     /// @brief Get maximum MSAA sample count for a physical device
     /// @param properties Physical device properties
     /// @return Maximum MSAA sample count
-    APPLIB_API vk::SampleCountFlagBits get_max_msaa(const vk::PhysicalDeviceProperties2 &properties);
+    AGRB_EXPORT vk::SampleCountFlagBits get_max_msaa(const vk::PhysicalDeviceProperties2 &properties);
 } // namespace agrb

@@ -114,14 +114,14 @@ namespace agrb
         }
     };
 
-    APPLIB_API void create_swapchain(swapchain_create_info &create_info);
+    AGRB_EXPORT void create_swapchain(swapchain_create_info &create_info);
 
     inline void destroy_swapchain(vk::SwapchainKHR swapchain, device &dev)
     {
         dev.vk_device.destroySwapchainKHR(swapchain, nullptr, dev.loader);
     }
 
-    APPLIB_API bool create_fb_handles(framebuffer *fb, device &dev);
+    AGRB_EXPORT bool create_fb_handles(framebuffer *fb, device &dev);
 
     inline bool create_fb_multi_image_view(fb_image &fb_image, vk::ImageViewCreateInfo &view_info, device &dev)
     {

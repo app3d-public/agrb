@@ -18,7 +18,7 @@ namespace agrb
     };
 
     /// @brief Wrapper for creating a descriptor set layout
-    class APPLIB_API descriptor_set_layout
+    class descriptor_set_layout
     {
     public:
         /// @brief Descriptor set layout builder
@@ -62,7 +62,7 @@ namespace agrb
         /// @brief Create a descriptor set layout
         /// @param device Current device
         /// @param bindings Map of descriptor bindings
-        descriptor_set_layout(device &device, const acul::hashmap<u32, descriptor_binding> &bindings);
+        AGRB_EXPORT descriptor_set_layout(device &device, const acul::hashmap<u32, descriptor_binding> &bindings);
 
         ~descriptor_set_layout()
         {
@@ -70,7 +70,6 @@ namespace agrb
         }
 
         descriptor_set_layout(const descriptor_set_layout &) = delete;
-
         descriptor_set_layout &operator=(const descriptor_set_layout &) = delete;
 
         /// @brief Get the created descriptor set layout
@@ -85,7 +84,7 @@ namespace agrb
     };
 
     /// @brief A wrapper for creating descriptor pools
-    class APPLIB_API descriptor_pool
+    class descriptor_pool
     {
     public:
         /// @brief Descriptor pool builder
@@ -155,14 +154,13 @@ namespace agrb
         ~descriptor_pool() { _device.vk_device.destroyDescriptorPool(_descriptor_pool, nullptr, _device.loader); }
 
         descriptor_pool(const descriptor_pool &) = delete;
-
         descriptor_pool &operator=(const descriptor_pool &) = delete;
 
         /// @brief Allocate specified descriptor set
         /// @param descriptor_set_layout Descriptor set layout
         /// @param descriptor Destination descriptor set
         /// @return true if success else false
-        bool allocate_descriptor(const vk::DescriptorSetLayout descriptor_set_layout,
+        AGRB_EXPORT bool allocate_descriptor(const vk::DescriptorSetLayout descriptor_set_layout,
                                  vk::DescriptorSet &descriptor) const;
 
         /// @brief Free allocate descriptor sets by specified acul::vector of descriptors
@@ -187,7 +185,7 @@ namespace agrb
     };
 
     /// @brief A wrapper for writing descriptor set to destinations
-    class APPLIB_API descriptor_writer
+    class descriptor_writer
     {
     public:
         /// @brief Initialize a descriptor writer
@@ -202,13 +200,13 @@ namespace agrb
         /// @param binding Destination buffer binding
         /// @param buffer_info BufferInfo structure
         /// @return Self
-        descriptor_writer &write_buffer(u32 binding, vk::DescriptorBufferInfo *buffer_info);
+        AGRB_EXPORT descriptor_writer &write_buffer(u32 binding, vk::DescriptorBufferInfo *buffer_info);
 
         /// @brief Write image to destination descriptor set
         /// @param binding Destination image binding
         /// @param image_info ImageInfo structure
         /// @return Self
-        descriptor_writer &write_image(u32 binding, vk::DescriptorImageInfo *image_info);
+        AGRB_EXPORT descriptor_writer &write_image(u32 binding, vk::DescriptorImageInfo *image_info);
 
         /// @brief Allocate descriptor set by applied write bindings
         /// @param set Destination descriptor set

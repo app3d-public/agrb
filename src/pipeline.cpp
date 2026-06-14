@@ -87,7 +87,7 @@ namespace agrb
             .setBasePipelineHandle(nullptr);
     }
 
-    APPLIB_API void
+    AGRB_EXPORT void
     configure_compute_pipeline_artifact(pipeline_batch<vk::ComputePipelineCreateInfo>::artifact &artifact,
                                         vk::PipelineLayout &layout, agrb::device &device,
                                         const vk::ShaderModule &shader)
@@ -189,5 +189,7 @@ namespace agrb
             stream.read(block->code.data(), code_size);
             return block;
         }
+
+        const umbf::streams::Stream shader{read_shader, write_shader};
     } // namespace streams
 } // namespace agrb

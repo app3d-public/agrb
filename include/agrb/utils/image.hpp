@@ -38,7 +38,7 @@ namespace agrb
     /// @param old_layout Current layout
     /// @param new_layout New layout
     /// @param mip_levels Image mip level
-    APPLIB_API void transition_image_layout(single_time_exec &exec, vk::Image image, vk::ImageLayout old_layout,
+    AGRB_EXPORT void transition_image_layout(single_time_exec &exec, vk::Image image, vk::ImageLayout old_layout,
                                             vk::ImageLayout new_layout, u32 mip_levels);
 
     inline vk::Result transition_image_layout(device &device, vk::Image image, vk::ImageLayout old_layout,

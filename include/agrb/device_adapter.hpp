@@ -122,8 +122,8 @@ namespace agrb
         }
     };
 
-    APPLIB_API void initialize_adopted_device(device &device, const adopted_device_create_info &create_info);
-    APPLIB_API void destroy_adopted_device(device &device);
-    APPLIB_API bool create_adopted_allocator(device &device);
-    APPLIB_API void destroy_adopted_allocator(device &device);
+    AGRB_EXPORT void initialize_adopted_device(device &device, const adopted_device_create_info &create_info);
+    AGRB_EXPORT void destroy_adopted_device(device &device);
+    AGRB_EXPORT bool create_adopted_allocator(device &device);
+    AGRB_EXPORT void destroy_adopted_allocator(device &device);
 } // namespace agrb

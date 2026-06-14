@@ -29,17 +29,13 @@ namespace agrb
         std::swap(a.image_extent, b.image_extent);
     }
 
-    APPLIB_API VmaMemoryUsage get_texture_memory_usage(vk::ImageCreateInfo image_info, device &device,
-                                                       vk::PhysicalDeviceMemoryProperties memory_properties);
-
-    APPLIB_API bool create_texture_image_info(texture &texture, const vk::Buffer &buffer, device &device);
-
-    APPLIB_API void generate_texture_mipmaps(single_time_exec &exec, texture &texture);
-
-    APPLIB_API bool allocate_texture(texture &texture, vk::ImageViewType image_type, void *pixels, device &device);
-
-    APPLIB_API bool upload_texture_subimage(texture &texture, void *pixels, vk::DeviceSize size,
-                                            vk::Extent3D extent, vk::Offset3D offset, device &device);
+    AGRB_EXPORT VmaMemoryUsage get_texture_memory_usage(vk::ImageCreateInfo image_info, device &device,
+                                                        vk::PhysicalDeviceMemoryProperties memory_properties);
+    AGRB_EXPORT bool create_texture_image_info(texture &texture, const vk::Buffer &buffer, device &device);
+    AGRB_EXPORT void generate_texture_mipmaps(single_time_exec &exec, texture &texture);
+    AGRB_EXPORT bool allocate_texture(texture &texture, vk::ImageViewType image_type, void *pixels, device &device);
+    AGRB_EXPORT bool upload_texture_subimage(texture &texture, void *pixels, vk::DeviceSize size, vk::Extent3D extent,
+                                             vk::Offset3D offset, device &device);
 
     inline void destroy_texture(texture &texture, device &device)
     {
