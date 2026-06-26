@@ -61,6 +61,13 @@ namespace agrb
         dst.push_back(vk::EXTDebugUtilsExtensionName);
 #endif
         if (ctx->present_ctx) ctx->present_ctx->assign_instance_extensions(ext, dst);
+        for (const char *extension : ctx->instance_extensions_optional)
+        {
+            if (ext.find(extension) == ext.end()) continue;
+            if (std::find(dst.begin(), dst.end(), extension) != dst.end()) continue;
+            dst.push_back(extension);
+            if (ctx->runtime_data) ctx->runtime_data->mark_opt_instance_extension_supported(extension);
+        }
     };
 
     void init_device(const acul::string &app_name, u32 version, device &device, device_create_ctx *create_ctx)
@@ -340,13 +347,22 @@ namespace agrb
         for (u32 queue_family : unique_queue_families)
             queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), queue_family, 1, &queue_priority);
 
+        void *device_logical_next = create_ctx->device_logical_next;
+        for (auto it = create_ctx->device_features_optional.rbegin(); it != create_ctx->device_features_optional.rend();
+             ++it)
+        {
+            if (!runtime_data.is_opt_extension_supported(it->extension)) continue;
+            it->feature->pNext = reinterpret_cast<VkBaseOutStructure *>(device_logical_next);
+            device_logical_next = it->feature;
+        }
+
         vk::DeviceCreateInfo create_info;
         create_info.setQueueCreateInfoCount(static_cast<u32>(queue_create_infos.size()))
             .setPQueueCreateInfos(queue_create_infos.data())
             .setEnabledExtensionCount(static_cast<u32>(using_extensitions.size()))
             .setPpEnabledExtensionNames(using_extensitions.data())
             .setPEnabledFeatures(&create_ctx->device_features)
-            .setPNext(create_ctx->device_logical_next);
+            .setPNext(device_logical_next);
         device = physical_device.createDevice(create_info, nullptr, loader);
 
         queues.graphics.vk_queue = device.getQueue(queues.graphics.family_id.value(), 0, loader);

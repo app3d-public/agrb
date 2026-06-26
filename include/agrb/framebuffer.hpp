@@ -29,9 +29,9 @@ namespace agrb
 
     inline void destroy_fb_image_slot(fb_image_slot &slot, device &dev)
     {
-        for (auto &image : slot.attachments) destroy_fb_image(image, dev);
         for (const auto &fb : slot.fb_group) dev.vk_device.destroyFramebuffer(fb, nullptr, dev.loader);
         slot.fb_group.deallocate();
+        for (auto &image : slot.attachments) destroy_fb_image(image, dev);
     }
 
     struct fb_attachments
@@ -88,6 +88,10 @@ namespace agrb
         vk::SwapchainKHR old_swapchain = nullptr;
         vk::SwapchainKHR *pSwapchain = nullptr;
         vk::Format image_format;
+        bool present_scaling = false;
+        vk::PresentScalingFlagsKHR present_scaling_behavior = vk::PresentScalingFlagBitsKHR::eOneToOne;
+        vk::PresentGravityFlagsKHR present_gravity_x = vk::PresentGravityFlagBitsKHR::eMin;
+        vk::PresentGravityFlagsKHR present_gravity_y = vk::PresentGravityFlagBitsKHR::eMin;
 
         swapchain_create_info &set_attachments(fb_attachments *pAttachments)
         {
@@ -110,6 +114,19 @@ namespace agrb
         swapchain_create_info &set_swapchain(vk::SwapchainKHR *pSwapchain)
         {
             this->pSwapchain = pSwapchain;
+            return *this;
+        }
+
+        swapchain_create_info &
+        set_present_scaling(bool enabled,
+                            vk::PresentScalingFlagsKHR scaling = vk::PresentScalingFlagBitsKHR::eOneToOne,
+                            vk::PresentGravityFlagsKHR gravity_x = vk::PresentGravityFlagBitsKHR::eMin,
+                            vk::PresentGravityFlagsKHR gravity_y = vk::PresentGravityFlagBitsKHR::eMin)
+        {
+            present_scaling = enabled;
+            present_scaling_behavior = scaling;
+            present_gravity_x = gravity_x;
+            present_gravity_y = gravity_y;
             return *this;
         }
     };
