@@ -29,7 +29,7 @@ namespace agrb
         vk::Instance instance;
         vk::Device vk_device;
         vk::PhysicalDevice physical_device;
-        VmaAllocator allocator;
+        VmaAllocator allocator = nullptr;
         vk::SurfaceKHR surface;
         vk::DispatchLoaderDynamic &loader;
         struct device_runtime_data *rd;
@@ -38,8 +38,9 @@ namespace agrb
 
         void destroy_window_surface(vk::DispatchLoaderDynamic &dispatch_loader)
         {
-            if (!surface) return;
+            if (!instance || !surface) return;
             instance.destroySurfaceKHR(surface, nullptr, dispatch_loader);
+            surface = nullptr;
         }
 
         /// @brief Check whether the specified format supports linear filtration
@@ -135,8 +136,22 @@ namespace agrb
 
         void destroy(vk::Device device, vk::DispatchLoaderDynamic &loader)
         {
-            device.destroyCommandPool(graphics.pool.vk_pool, nullptr, loader);
-            device.destroyCommandPool(compute.pool.vk_pool, nullptr, loader);
+            if (!device) return;
+            const auto graphics_pool = graphics.pool.vk_pool;
+            if (graphics_pool)
+            {
+                device.destroyCommandPool(graphics_pool, nullptr, loader);
+                graphics.pool.vk_pool = nullptr;
+                graphics.pool.primary.clear();
+                graphics.pool.secondary.clear();
+            }
+            if (compute.pool.vk_pool && compute.pool.vk_pool != graphics_pool)
+            {
+                device.destroyCommandPool(compute.pool.vk_pool, nullptr, loader);
+                compute.pool.vk_pool = nullptr;
+                compute.pool.primary.clear();
+                compute.pool.secondary.clear();
+            }
         }
     };
 
@@ -152,7 +167,12 @@ namespace agrb
             for (size_t i = 0; i < size; ++i) pFences[i] = device->createFence(create_info, nullptr, *loader);
         }
 
-        void release(vk::Fence &fence) { device->destroyFence(fence, nullptr, *loader); }
+        void release(vk::Fence &fence)
+        {
+            if (!device || !*device || !fence) return;
+            device->destroyFence(fence, nullptr, *loader);
+            fence = nullptr;
+        }
     };
 
     struct device_runtime_data
@@ -164,8 +184,14 @@ namespace agrb
 
         void destroy(vk::Device &device, vk::DispatchLoaderDynamic &loader)
         {
+            if (!device) return;
             queues.destroy(device, loader);
-            fence_pool.destroy();
+            if (fence_pool.allocator.device)
+            {
+                fence_pool.destroy();
+                fence_pool.allocator.device = nullptr;
+                fence_pool.allocator.loader = nullptr;
+            }
         }
 
         /// @brief Get aligned size for UBO buffer by current physical device
@@ -184,6 +210,7 @@ namespace agrb
         bool is_opt_instance_extension_supported(const char *extension)
         { return contains_extension(_instance_extensions, extension); }
         void mark_opt_instance_extension_supported(const char *extension) { _instance_extensions.emplace(extension); }
+        void clear_opt_instance_extensions() { _instance_extensions.clear(); }
 
     private:
         acul::hashset<acul::string> _extensions;

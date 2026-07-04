@@ -22,7 +22,13 @@ namespace agrb
         void destroy()
         {
             for (auto &data : _data) allocator.release(data);
+            clear();
+        }
+
+        void clear()
+        {
             _data.clear();
+            _released = {};
             _size = 0;
             _pos = 0;
         }

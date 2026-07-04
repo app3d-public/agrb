@@ -81,13 +81,31 @@ namespace agrb
 
     void destroy_device(device &device)
     {
-        if (!device.vk_device) return;
-        if (device.allocator) vmaDestroyAllocator(device.allocator);
-        device.vk_device.destroy(nullptr, device.loader);
+        if (device.allocator)
+        {
+            vmaDestroyAllocator(device.allocator);
+            device.allocator = nullptr;
+        }
+        if (device.vk_device)
+        {
+            device.vk_device.destroy(nullptr, device.loader);
+            device.vk_device = nullptr;
+        }
 #ifndef NDEBUG
-        device.instance.destroyDebugUtilsMessengerEXT(device.debug_messenger, nullptr, device.loader);
+        if (device.instance && device.debug_messenger)
+        {
+            device.instance.destroyDebugUtilsMessengerEXT(device.debug_messenger, nullptr, device.loader);
+            device.debug_messenger = nullptr;
+        }
 #endif
-        device.instance.destroy(nullptr, device.loader);
+        if (device.instance)
+        {
+            device.instance.destroy(nullptr, device.loader);
+            device.instance = nullptr;
+        }
+        device.physical_device = nullptr;
+        device.surface = nullptr;
+        device.rd = nullptr;
     }
 
     acul::vector<const char *> using_extensitions;
@@ -190,13 +208,15 @@ namespace agrb
         return rating;
     }
 
-    acul::vector<const char *> get_supported_opt_ext(vk::PhysicalDevice device,
-                                                     const acul::hashset<acul::string> &all_extensions,
+    acul::vector<const char *> get_supported_opt_ext(const acul::hashset<acul::string> &all_extensions,
                                                      const acul::vector<const char *> &opt_extensions)
     {
         acul::vector<const char *> supported_extensions;
         for (const auto &extension : opt_extensions)
-            if (all_extensions.find(extension) != all_extensions.end()) supported_extensions.push_back(extension);
+        {
+            if (all_extensions.find(extension) == all_extensions.end()) continue;
+            supported_extensions.push_back(extension);
+        }
         return supported_extensions;
     }
 
@@ -232,8 +252,7 @@ namespace agrb
                 if (validate_physical_device(*device, extensions, indices))
                 {
                     physical_device = *device;
-                    extensions_optional =
-                        get_supported_opt_ext(physical_device, extensions, create_ctx->device_extensions_optional);
+                    extensions_optional = get_supported_opt_ext(extensions, create_ctx->device_extensions_optional);
                     runtime_data.properties2.pNext = create_ctx->device_physical_next;
                     runtime_data.properties2.properties = physical_device.getProperties(loader);
                 }
@@ -251,7 +270,7 @@ namespace agrb
                 {
                     runtime_data.properties2.pNext = create_ctx->device_physical_next;
                     runtime_data.properties2 = device.getProperties2(loader);
-                    auto opt_tmp = get_supported_opt_ext(device, extensions, create_ctx->device_extensions_optional);
+                    auto opt_tmp = get_supported_opt_ext(extensions, create_ctx->device_extensions_optional);
                     int rating = get_device_rating(opt_tmp, runtime_data.properties2.properties);
                     if (rating > max_rating)
                     {
@@ -273,6 +292,7 @@ namespace agrb
 
         runtime_data.memory_properties = physical_device.getMemoryProperties(loader);
 
+        using_extensitions.clear();
         using_extensitions.insert(using_extensitions.end(), create_ctx->device_extensions.begin(),
                                   create_ctx->device_extensions.end());
         using_extensitions.insert(using_extensitions.end(), extensions_optional.begin(), extensions_optional.end());
@@ -403,7 +423,8 @@ namespace agrb
     {
         auto &vklib = detail::g_devlib->vklib;
         if (!vklib.success()) throw acul::runtime_error("Failed to load Vulkan library");
-        loader.init(vklib.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
+        auto get_instance_proc_addr = vklib.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr");
+        loader.init(get_instance_proc_addr);
 #ifndef NDEBUG
         if (!check_validation_layers_support(create_ctx->validation_layers, loader))
             throw acul::runtime_error("Validation layers requested, but not available!");
@@ -421,6 +442,8 @@ namespace agrb
         acul::set<acul::string> available{};
         for (const auto &extension : vk::enumerateInstanceExtensionProperties(nullptr, loader))
             available.insert(extension.extensionName.data());
+        extensions.clear();
+        runtime_data.clear_opt_instance_extensions();
         create_ctx->assign_instance_extensions(create_ctx, available, extensions);
         create_info.setEnabledExtensionCount(static_cast<u32>(extensions.size()))
             .setPpEnabledExtensionNames(extensions.data());
@@ -435,6 +458,7 @@ namespace agrb
                 .pNext = (VkDebugUtilsMessengerCreateInfoEXT *)&debug_create_info;
         }
 #endif
+        loader.init(get_instance_proc_addr);
         instance = vk::createInstance(create_info, nullptr, loader);
         if (!instance) throw acul::runtime_error("Failed to create vk:instance");
         loader.init(instance);
