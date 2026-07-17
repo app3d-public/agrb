@@ -45,6 +45,7 @@ namespace agrb
                                       std::optional<u32> *indices);
         void create_logical_device();
         void create_allocator();
+        acul::vector<bool> query_optional_features(vk::PhysicalDevice device);
 #ifndef NDEBUG
         void setup_debug_messenger();
 #endif
@@ -208,16 +209,38 @@ namespace agrb
         return rating;
     }
 
-    acul::vector<const char *> get_supported_opt_ext(const acul::hashset<acul::string> &all_extensions,
-                                                     const acul::vector<const char *> &opt_extensions)
+    acul::vector<const char *> get_supported_opt_ext(
+        const acul::hashset<acul::string> &all_extensions,
+        const acul::vector<device_create_ctx::optional_device_extension> &opt_extensions,
+        const acul::vector<bool> &optional_features)
     {
         acul::vector<const char *> supported_extensions;
         for (const auto &extension : opt_extensions)
         {
-            if (all_extensions.find(extension) == all_extensions.end()) continue;
-            supported_extensions.push_back(extension);
+            if (all_extensions.find(extension.extension) == all_extensions.end()) continue;
+            if (extension.feature_id != AGRB_FEATURE_ID_UNKNOWN &&
+                (extension.feature_id >= optional_features.size() || !optional_features[extension.feature_id]))
+                continue;
+            supported_extensions.push_back(extension.extension);
         }
         return supported_extensions;
+    }
+
+    acul::vector<bool> device_initializer::query_optional_features(vk::PhysicalDevice physical)
+    {
+        if (!create_ctx->device_features_optional_next) return {};
+        vk::PhysicalDeviceFeatures2 features;
+        features.setPNext(create_ctx->device_features_optional_next);
+        physical.getFeatures2(&features, loader);
+
+        acul::vector<bool> supported;
+        for (auto *feature = reinterpret_cast<VkBaseOutStructure *>(create_ctx->device_features_optional_next); feature;
+             feature = feature->pNext)
+        {
+            const auto *value = reinterpret_cast<const VkBool32 *>(feature + 1);
+            supported.push_back(*value == VK_TRUE);
+        }
+        return supported;
     }
 
     vk::SampleCountFlagBits get_max_msaa(const vk::PhysicalDeviceProperties2 &properties)
@@ -252,7 +275,6 @@ namespace agrb
                 if (validate_physical_device(*device, extensions, indices))
                 {
                     physical_device = *device;
-                    extensions_optional = get_supported_opt_ext(extensions, create_ctx->device_extensions_optional);
                     runtime_data.properties2.pNext = create_ctx->device_physical_next;
                     runtime_data.properties2.properties = physical_device.getProperties(loader);
                 }
@@ -270,7 +292,9 @@ namespace agrb
                 {
                     runtime_data.properties2.pNext = create_ctx->device_physical_next;
                     runtime_data.properties2 = device.getProperties2(loader);
-                    auto opt_tmp = get_supported_opt_ext(extensions, create_ctx->device_extensions_optional);
+                    const auto features_tmp = query_optional_features(device);
+                    auto opt_tmp =
+                        get_supported_opt_ext(extensions, create_ctx->device_extensions_optional, features_tmp);
                     int rating = get_device_rating(opt_tmp, runtime_data.properties2.properties);
                     if (rating > max_rating)
                     {
@@ -283,6 +307,11 @@ namespace agrb
 
             if (!physical_device) throw acul::runtime_error("Failed to find a suitable GPU");
         }
+
+        validate_physical_device(physical_device, extensions, indices);
+        const auto optional_feature_support = query_optional_features(physical_device);
+        extensions_optional =
+            get_supported_opt_ext(extensions, create_ctx->device_extensions_optional, optional_feature_support);
 
         if (create_ctx->ph_selector) create_ctx->ph_selector->response(true, &physical_device, loader);
         queues.graphics.family_id = indices[DEVICE_QUEUE_GRAPHICS];
@@ -367,13 +396,27 @@ namespace agrb
         for (u32 queue_family : unique_queue_families)
             queue_create_infos.emplace_back(vk::DeviceQueueCreateFlags(), queue_family, 1, &queue_priority);
 
-        void *device_logical_next = create_ctx->device_logical_next;
-        for (auto it = create_ctx->device_features_optional.rbegin(); it != create_ctx->device_features_optional.rend();
-             ++it)
+        acul::vector<VkBaseOutStructure *> optional_feature_nodes;
+        for (auto *feature = reinterpret_cast<VkBaseOutStructure *>(create_ctx->device_features_optional_next); feature;
+             feature = feature->pNext)
+            optional_feature_nodes.push_back(feature);
+
+        acul::vector<bool> enabled_feature_nodes(optional_feature_nodes.size(), false);
+        for (const auto &extension : create_ctx->device_extensions_optional)
         {
-            if (!runtime_data.is_opt_extension_supported(it->extension)) continue;
-            it->feature->pNext = reinterpret_cast<VkBaseOutStructure *>(device_logical_next);
-            device_logical_next = it->feature;
+            if (extension.feature_id == AGRB_FEATURE_ID_UNKNOWN ||
+                extension.feature_id >= enabled_feature_nodes.size() ||
+                !runtime_data.is_opt_extension_supported(extension.extension))
+                continue;
+            enabled_feature_nodes[extension.feature_id] = true;
+        }
+
+        void *device_logical_next = create_ctx->device_logical_next;
+        for (size_t i = optional_feature_nodes.size(); i > 0u; --i)
+        {
+            if (!enabled_feature_nodes[i - 1u]) continue;
+            optional_feature_nodes[i - 1u]->pNext = reinterpret_cast<VkBaseOutStructure *>(device_logical_next);
+            device_logical_next = optional_feature_nodes[i - 1u];
         }
 
         vk::DeviceCreateInfo create_info;

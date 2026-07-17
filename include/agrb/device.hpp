@@ -14,6 +14,8 @@
 #include "agrb.hpp"
 #include "pool.hpp"
 
+#define AGRB_FEATURE_ID_UNKNOWN UINT32_MAX
+
 namespace agrb
 {
     /// @brief Swapchain details
@@ -258,17 +260,19 @@ namespace agrb
     class device_create_ctx
     {
     public:
-        struct optional_device_feature
+        struct optional_device_extension
         {
             const char *extension;
-            VkBaseOutStructure *feature;
+            // Ordinal of the feature structure in device_features_optional_next.
+            u32 feature_id = AGRB_FEATURE_ID_UNKNOWN;
         };
 
         acul::vector<const char *> validation_layers;
         acul::vector<const char *> instance_extensions_optional;
         acul::vector<const char *> device_extensions;
-        acul::vector<const char *> device_extensions_optional;
-        acul::vector<optional_device_feature> device_features_optional;
+        acul::vector<optional_device_extension> device_extensions_optional;
+        // Each node represents one optional feature; its first VkBool32 is the queried support value.
+        void *device_features_optional_next = nullptr;
         size_t fence_pool_size;
         vk::PhysicalDeviceFeatures device_features;
         void *device_logical_next = nullptr;
@@ -306,15 +310,31 @@ namespace agrb
             return *this;
         }
 
-        device_create_ctx &set_device_extensions_optional(const acul::vector<const char *> &extensions)
+        device_create_ctx &set_device_extensions_optional(const acul::vector<optional_device_extension> &extensions)
         {
             device_extensions_optional = extensions;
             return *this;
         }
 
-        device_create_ctx &set_device_features_optional(const acul::vector<optional_device_feature> &features)
+        device_create_ctx &set_device_extensions_optional(std::initializer_list<const char *> extensions)
         {
-            device_features_optional = features;
+            device_extensions_optional.clear();
+            device_extensions_optional.reserve(extensions.size());
+            for (const char *extension : extensions) device_extensions_optional.push_back({extension});
+            return *this;
+        }
+
+        device_create_ctx &set_device_extensions_optional(const acul::vector<const char *> &extensions)
+        {
+            device_extensions_optional.clear();
+            device_extensions_optional.reserve(extensions.size());
+            for (const char *extension : extensions) device_extensions_optional.push_back({extension});
+            return *this;
+        }
+
+        device_create_ctx &set_device_features_optional(void *pNext)
+        {
+            device_features_optional_next = pNext;
             return *this;
         }
 
@@ -373,7 +393,8 @@ namespace agrb
                                                         acul::vector<const char *> &dst);
 
     inline device_create_ctx::device_create_ctx()
-        : fence_pool_size(0),
+        : device_features_optional_next(nullptr),
+          fence_pool_size(0),
           device_logical_next(nullptr),
           device_physical_next(nullptr),
           runtime_data(nullptr),
