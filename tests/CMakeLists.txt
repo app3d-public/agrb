@@ -80,6 +80,7 @@ add_custom_command(
 add_custom_target(SHADERS ALL DEPENDS ${TEST_SHADER_UMLIB})
 
 add_test_files(agrb buffer buffer.cpp)
+add_test_files(agrb dynamic_buffer dynamic_buffer.cpp)
 add_test_files(agrb descriptors descriptors.cpp)
 add_test_files(agrb utils utils.cpp)
 add_test_files(agrb pipeline pipeline.cpp)

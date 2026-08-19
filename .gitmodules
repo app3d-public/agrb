@@ -9,7 +9,7 @@
 	url = ../acbt.git
 [submodule "modules/umbf"]
 	path = modules/umbf
-	url = git@git.dev.lan:app3d/umbf.git
+	url = ../umbf.git
 [submodule "modules/3rd-party/args"]
 	path = modules/3rd-party/args
 	url = git@github.com:Taywee/args.git

@@ -6,7 +6,7 @@
 
 namespace agrb
 {
-    struct VectorResultBits
+    struct vector_result_flag_bits
     {
         enum enum_type : u8
         {
@@ -16,7 +16,7 @@ namespace agrb
         };
         using flag_bitmask = std::true_type;
     };
-    using VectorResultFlags = acul::flags<VectorResultBits>;
+    using vector_result_flags = acul::flags<vector_result_flag_bits>;
 
     template <typename T>
     class vector
@@ -65,7 +65,7 @@ namespace agrb
             pointer tmp = acul::alloc_n<value_type>(_size);
             size_type i = 0;
             for (auto it = first; it != last; ++it, ++i) tmp[i] = *it;
-            write_to_buffer(_data, tmp, get_required_mem(_size));
+            write_to_buffer(_data, tmp, get_required_memory_size(_size));
             acul::release(tmp);
         }
 
@@ -78,7 +78,7 @@ namespace agrb
             pointer tmp = acul::alloc_n<value_type>(_size);
             size_type i = 0;
             for (const auto &v : ilist) tmp[i++] = v;
-            write_to_buffer(_data, tmp, get_required_mem(_size));
+            write_to_buffer(_data, tmp, get_required_memory_size(_size));
             acul::release(tmp);
         }
 
@@ -97,34 +97,34 @@ namespace agrb
 
         ~vector() { destroy(); }
 
-        VectorResultFlags reserve(size_type new_capacity)
+        vector_result_flags reserve(size_type new_capacity)
         {
-            if (new_capacity <= capacity()) return VectorResultBits::success;
+            if (new_capacity <= capacity()) return vector_result_flag_bits::success;
             _data.instance_count = new_capacity;
-            if (!reallocate(false)) return VectorResultBits::none;
-            return VectorResultBits::success | VectorResultBits::buffer_reallocated;
+            if (!reallocate(false)) return vector_result_flag_bits::none;
+            return vector_result_flag_bits::success | vector_result_flag_bits::buffer_reallocated;
         }
 
-        VectorResultFlags resize(size_type new_size)
+        vector_result_flags resize(size_type new_size)
         {
             if (new_size > capacity())
             {
                 _data.instance_count = new_size;
-                if (!reallocate(false)) return VectorResultBits::none;
+                if (!reallocate(false)) return vector_result_flag_bits::none;
                 _size = new_size;
-                return VectorResultBits::success | VectorResultBits::buffer_reallocated;
+                return vector_result_flag_bits::success | vector_result_flag_bits::buffer_reallocated;
             }
             _size = new_size;
-            return VectorResultBits::success;
+            return vector_result_flag_bits::success;
         }
 
-        VectorResultFlags push_back(const_reference value)
+        vector_result_flags push_back(const_reference value)
         {
-            VectorResultFlags result = VectorResultBits::success;
+            vector_result_flags result = vector_result_flag_bits::success;
             if (_size >= capacity())
             {
-                if (!reallocate(_size + 1)) return VectorResultBits::none;
-                result |= VectorResultBits::buffer_reallocated;
+                if (!reallocate(_size + 1)) return vector_result_flag_bits::none;
+                result |= vector_result_flag_bits::buffer_reallocated;
             }
             write_to_buffer(_data, (void *)&value, sizeof(value_type), _size * _data.alignment_size);
             ++_size;
@@ -138,7 +138,7 @@ namespace agrb
         }
 
         template <typename... Args>
-        VectorResultFlags emplace_back(Args &&...args)
+        vector_result_flags emplace_back(Args &&...args)
         {
             value_type val(std::forward<Args>(args)...);
             return push_back(val);
@@ -332,7 +332,7 @@ namespace agrb
             size_type i = 0;
             for (InputIt it = first; it != last; ++it, ++i) tmp[i] = *it;
 
-            write_to_buffer(_data, tmp, get_required_mem(new_size));
+            write_to_buffer(_data, tmp, get_required_memory_size(new_size));
             acul::release(tmp);
             _size = new_size;
         }
@@ -346,17 +346,17 @@ namespace agrb
             pointer tmp = acul::alloc_n<value_type>(count);
             for (size_type i = 0; i < count; ++i) tmp[i] = value;
 
-            write_to_buffer(_data, tmp, get_required_mem(count));
+            write_to_buffer(_data, tmp, get_required_memory_size(count));
             acul::release(tmp);
             _size = count;
         }
 
-        VectorResultFlags defragment()
+        vector_result_flags defragment()
         {
             assert(is_inited());
             _data.instance_count = acul::get_growth_size_aligned(static_cast<u32>(_size));
-            if (!reallocate(false)) return VectorResultBits::none;
-            return VectorResultBits::success | VectorResultBits::buffer_reallocated;
+            if (!reallocate(false)) return vector_result_flag_bits::none;
+            return vector_result_flag_bits::success | vector_result_flag_bits::buffer_reallocated;
         }
 
     private:
@@ -388,11 +388,11 @@ namespace agrb
         {
             pointer tmp = acul::alloc_n<value_type>(_size);
             for (size_type i = 0; i < _size; ++i) tmp[i] = val;
-            write_to_buffer(_data, tmp, get_required_mem(_size));
+            write_to_buffer(_data, tmp, get_required_memory_size(_size));
             acul::release(tmp);
         }
 
-        size_type get_required_mem(size_type n) const { return n * _data.alignment_size; }
+        size_type get_required_memory_size(size_type n) const { return n * _data.alignment_size; }
 
         bool reallocate(bool adjust_capacity = true)
         {
@@ -412,7 +412,7 @@ namespace agrb
                 return false;
             }
             if (_data.mapped && _size > 0)
-                write_to_buffer(new_buffer, _data.mapped, get_required_mem(_size));
+                write_to_buffer(new_buffer, _data.mapped, get_required_memory_size(_size));
             destroy_buffer(_data, *_device);
             _data = new_buffer;
             return true;
@@ -432,8 +432,7 @@ namespace agrb
                 if (!vector.resize(request_count)) return false;
                 if (!vector.defragment()) return false;
             }
-            else if (!vector.resize(request_count))
-                return false;
+            else if (!vector.resize(request_count)) return false;
 
             if (request_size > 0) write_to_buffer(vector.data(), data, request_size);
             return true;
