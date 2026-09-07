@@ -56,8 +56,8 @@ namespace agrb
     /// @param dimensions Image dimensions
     /// @param layer_count Layer count
     /// @param offset Offset
-    inline void copy_image_to_buffer(device &device, vk::Buffer buffer, vk::Image image, acul::point2D<u32> dimensions,
-                                     u32 layerCount, acul::point2D<int> offset = {0, 0})
+    inline void copy_image_to_buffer(device &device, vk::Buffer buffer, vk::Image image, vk::Extent2D dimensions,
+                                     u32 layerCount, vk::Offset2D offset = {0, 0})
     {
         single_time_exec info{device};
         vk::BufferImageCopy region{};
@@ -66,7 +66,7 @@ namespace agrb
             .setBufferImageHeight(0)
             .setImageSubresource({vk::ImageAspectFlagBits::eColor, 0, 0, layerCount})
             .setImageOffset({offset.x, offset.y, 0})
-            .setImageExtent({dimensions.x, dimensions.y, 1});
+            .setImageExtent({dimensions.width, dimensions.height, 1});
         info.command_buffer.copyImageToBuffer(image, vk::ImageLayout::eTransferSrcOptimal, buffer, 1, &region,
                                               info.loader);
         info.end();

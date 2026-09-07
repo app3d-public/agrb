@@ -1,8 +1,8 @@
 ﻿# AGRB S2U (SPIR-V to UMBF)
 
-`s2u` packs compiled `.spv` files into one UMBF library (`.umlib`).
+`s2u` packs compiled `.spv` files into one UMBF file (`.umlib`).
 
-It scans an input directory, reads all `.spv` files, and stores each shader as an `agrb::shader_block` inside `umbf::Library`.
+It scans an input directory, reads all `.spv` files, and stores each shader directly as an `agrb::shader_block` payload.
 
 ## CLI
 
@@ -24,15 +24,10 @@ Short flags:
 
 ## Output format
 
-- Output file type: `umbf::sign_block::format::library`
-- Root node: folder
-- Each shader is a file node with one `agrb::shader_block`
-
-Shader node headers:
-- `vendor_sign = AGRB_VENDOR_ID`
-- `vendor_version = AGRB_VERSION`
-- `spec_version = UMBF_VERSION`
-- `type_sign = AGRB_TYPE_ID_SHADER`
+- Output file type: `umbf::sign_block::format::raw`
+- Each table entry has signature `AGRB_SIGN_ID_SHADER`
+- Each entry payload contains one serialized `agrb::shader_block`
+- The table and shader blob are compressed together when compression is enabled
 
 ## Typical CMake flow
 

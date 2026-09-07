@@ -8,45 +8,32 @@ using shader_block_cache = acul::hashmap<u64, acul::shared_ptr<shader_block>>;
 
 static shader_block_cache load_shader_cache(const acul::string &library_path)
 {
-    umbf::streams::HashResolver resolver;
-    resolver.streams.emplace(static_cast<u32>(umbf::sign_block::library), &umbf::streams::library);
-    resolver.streams.emplace(static_cast<u32>(AGRB_TYPE_ID_SHADER), &agrb::streams::shader);
-    resolver.streams.emplace(static_cast<u32>(AGRB_SIGN_ID_SHADER), &agrb::streams::shader);
-    auto *prev_resolver = umbf::streams::resolver;
-    umbf::streams::resolver = &resolver;
+    umbf::registry::HashResolver resolver;
+    resolver.block_streams.emplace(static_cast<u32>(AGRB_TYPE_ID_SHADER), &agrb::streams::shader);
+    resolver.block_streams.emplace(static_cast<u32>(AGRB_SIGN_ID_SHADER), &agrb::streams::shader);
+    umbf::insert_default_segment_codecs(resolver);
+    auto *prev_resolver = umbf::registry::resolver;
+    umbf::registry::resolver = &resolver;
 
-    acul::shared_ptr<umbf::File> asset;
-    auto load_res = umbf::File::read_from_disk(library_path, asset);
-
-    umbf::streams::resolver = prev_resolver;
+    umbf::ReadDescriptor asset;
+    auto load_res = umbf::create_read_descriptor(library_path, asset);
 
     assert(load_res.success());
-    assert(asset);
-    assert(asset->header.type_sign == umbf::sign_block::format::library);
+    assert(asset.file);
+    assert(asset.file->type_sign == umbf::sign_block::format::raw);
 
     shader_block_cache cache;
-    assert(!asset->blocks.empty());
-    auto library = acul::dynamic_pointer_cast<umbf::Library>(asset->blocks.front());
-    assert(library);
-
-    auto append_blocks = [&](const acul::vector<acul::shared_ptr<umbf::Block>> &blocks) {
-        for (const auto &block : blocks)
-        {
-            if (!block) continue;
-            auto sign = block->signature();
-            if (sign != AGRB_SIGN_ID_SHADER) continue;
-            auto shader = acul::static_pointer_cast<shader_block>(block);
-            cache.emplace(shader->id, shader);
-        }
-    };
-
-    assert(!library->file_tree.asset.blocks.empty() || !library->file_tree.children.empty());
-    append_blocks(library->file_tree.asset.blocks);
-    for (const auto &node : library->file_tree.children)
+    for (auto block = asset.begin(); block != asset.end(); ++block)
     {
-        if (node.is_folder) continue;
-        append_blocks(node.asset.blocks);
+        if (block->signature != AGRB_SIGN_ID_SHADER) continue;
+        auto value = umbf::get_block(block);
+        auto shader = value ? acul::make_shared<shader_block>(
+                                  std::move(*static_cast<shader_block *>(value.get())))
+                            : nullptr;
+        if (shader) cache.emplace(shader->id, shader);
     }
+    umbf::registry::resolver = prev_resolver;
+    assert(!cache.empty());
     return cache;
 }
 
@@ -66,11 +53,6 @@ void test_pipeline()
     auto cache = load_shader_cache((p / "test_shaders.umlib").str());
     const u64 vs_id = 0x063E992A01000000ULL;
     const u64 fs_id = 0x063E992A02000000ULL;
-    for (auto &item : cache)
-        std::fprintf(stderr, "cache id: 0x%016llX\n", static_cast<unsigned long long>(item.first));
-    std::fprintf(stderr, "expect vs=0x%016llX fs=0x%016llX\n", static_cast<unsigned long long>(vs_id),
-                 static_cast<unsigned long long>(fs_id));
-    std::fflush(stderr);
     auto vs_it = cache.find(vs_id);
     auto fs_it = cache.find(fs_id);
     assert(vs_it != cache.end());

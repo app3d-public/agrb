@@ -104,43 +104,25 @@ namespace agrb
             .setLayout(artifact.config.pipeline_layout);
     }
 
-    static void append_shader_node_to_cache(const umbf::Library::Node &node, acul::hashmap<u64, shader_module> &cache)
-    {
-        if (node.is_folder)
-        {
-            for (const auto &child : node.children) append_shader_node_to_cache(child, cache);
-            return;
-        }
-        auto &asset = node.asset;
-        if (asset.header.vendor_sign != AGRB_VENDOR_ID || asset.header.type_sign != AGRB_TYPE_ID_SHADER) return;
-
-        for (const auto &block : asset.blocks)
-        {
-            if (!block) continue;
-            const u32 sign = block->signature();
-            if (sign != AGRB_SIGN_ID_SHADER) continue;
-            auto shader = acul::static_pointer_cast<agrb::shader_block>(block);
-            auto &dst = cache[shader->id];
-            dst.data = shader;
-        }
-    }
-
     acul::op_result shader_cache::load_shader_library(const acul::path &library_path)
     {
         const auto key = library_path.str();
         if (_libraries.contains(key)) return acul::make_op_success();
 
-        acul::shared_ptr<umbf::File> file;
-        ACUL_TRY(umbf::File::read_from_disk(key, file));
-        if (!file) return acul::make_op_error(ACUL_OP_NULLPTR);
-        if (file->header.type_sign != umbf::sign_block::format::library || file->blocks.empty())
+        auto file = acul::make_shared<umbf::ReadDescriptor>();
+        ACUL_TRY(umbf::create_read_descriptor(key, *file));
+        if (!file->file) return acul::make_op_error(ACUL_OP_NULLPTR);
+        if (file->file->type_sign != umbf::sign_block::format::raw)
             return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
-
-        auto root = file->blocks.front();
-        if (!root || root->signature() != umbf::sign_block::library) return acul::make_op_error(ACUL_OP_ERROR_GENERIC);
-
-        auto library = acul::static_pointer_cast<umbf::Library>(root);
-        append_shader_node_to_cache(library->file_tree, _shaders);
+        for (auto block = file->begin(); block != file->end(); ++block)
+        {
+            if (block->signature != AGRB_SIGN_ID_SHADER) continue;
+            auto value = umbf::get_block(block);
+            acul::shared_ptr<agrb::shader_block> shader;
+            if (value) shader = acul::make_shared<agrb::shader_block>(
+                std::move(*static_cast<agrb::shader_block *>(value.get())));
+            if (shader) _shaders[shader->id].data = std::move(shader);
+        }
         _libraries.emplace(key, std::move(file));
         return acul::make_op_success();
     }
@@ -190,6 +172,6 @@ namespace agrb
             return block;
         }
 
-        const umbf::streams::Stream shader{read_shader, write_shader};
+        const umbf::registry::BlockStream shader{read_shader, write_shader};
     } // namespace streams
 } // namespace agrb

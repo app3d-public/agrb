@@ -1,4 +1,4 @@
-﻿#include <acul/io/fs/file.hpp>
+#include <acul/io/fs/file.hpp>
 #include <acul/io/fs/path.hpp>
 #include <acul/string/utils.hpp>
 #include <agrb/agrb.hpp>
@@ -132,8 +132,7 @@ int main(int argc, char **argv)
         return 2;
     }
 
-    auto library = acul::make_shared<umbf::Library>();
-    library->file_tree.is_folder = true;
+    acul::vector<acul::shared_ptr<agrb::shader_block>> shader_blocks;
 
     for (const auto &entry : entries)
     {
@@ -149,34 +148,33 @@ int main(int argc, char **argv)
         block->id = entry.id;
         block->code = std::move(bytes);
 
-        umbf::Library::Node shader_node;
-        shader_node.name = acul::fs::get_filename(entry.path);
-        shader_node.is_folder = false;
-        shader_node.asset.header.vendor_sign = AGRB_VENDOR_ID;
-        shader_node.asset.header.vendor_version = AGRB_VERSION;
-        shader_node.asset.header.spec_version = UMBF_VERSION;
-        shader_node.asset.header.type_sign = AGRB_TYPE_ID_SHADER;
-        shader_node.asset.header.flags = 0;
-        shader_node.asset.blocks.push_back(acul::static_pointer_cast<umbf::Block>(block));
-        library->file_tree.children.push_back(std::move(shader_node));
+        shader_blocks.push_back(std::move(block));
     }
 
-    umbf::File file;
-    file.header.vendor_sign = UMBF_VENDOR_ID;
-    file.header.vendor_version = UMBF_VERSION;
-    file.header.spec_version = UMBF_VERSION;
-    file.header.type_sign = umbf::sign_block::format::library;
-    file.header.flags = 0;
-    if (cfg.compression > 0) file.header.flags |= UMBF_COMPRESSION_PAYLOAD_BIT;
-    file.blocks.push_back(library);
+    umbf::Header header;
+    header.vendor_sign = UMBF_VENDOR_ID;
+    header.vendor_version = UMBF_VERSION;
+    header.spec_version = UMBF_VERSION;
+    header.type_sign = umbf::sign_block::format::raw;
 
-    umbf::streams::HashResolver resolver;
-    resolver.streams.emplace(static_cast<u32>(umbf::sign_block::library), &umbf::streams::library);
-    resolver.streams.emplace(static_cast<u32>(AGRB_TYPE_ID_SHADER), &agrb::streams::shader);
-    resolver.streams.emplace(static_cast<u32>(AGRB_SIGN_ID_SHADER), &agrb::streams::shader);
-    umbf::streams::resolver = &resolver;
+    umbf::registry::HashResolver resolver;
+    resolver.block_streams.emplace(static_cast<u32>(AGRB_TYPE_ID_SHADER), &agrb::streams::shader);
+    resolver.block_streams.emplace(static_cast<u32>(AGRB_SIGN_ID_SHADER), &agrb::streams::shader);
+    umbf::insert_default_segment_codecs(resolver);
+    umbf::registry::resolver = &resolver;
 
-    const bool ok = file.save(cfg.output_file, cfg.compression);
+    umbf::WriteDescriptor file;
+    const auto create_result = umbf::create_write_descriptor(cfg.output_file, header, file, cfg.compression);
+    if (!create_result.success())
+    {
+        std::fprintf(stderr, "Failed to create umbf file '%s'\n", cfg.output_file.c_str());
+        agrb::destroy_library();
+        return 2;
+    }
+    if (cfg.compression > 0) file.default_segment_signature = UMBF_SEGMENT_COMPRESSED;
+    for (const auto &block : shader_blocks) umbf::add_block(file, block.get());
+
+    const bool ok = umbf::finalize_file(file);
 
     agrb::destroy_library();
 

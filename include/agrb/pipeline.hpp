@@ -93,7 +93,7 @@ namespace agrb
         u64 id;
         acul::vector<char> code;
 
-        virtual u32 signature() const override { return AGRB_SIGN_ID_SHADER; }
+        u32 signature() const noexcept override { return AGRB_SIGN_ID_SHADER; }
     };
 
     /**
@@ -172,7 +172,7 @@ namespace agrb
 
     private:
         acul::hashmap<u64, shader_module> _shaders;
-        acul::hashmap<acul::string, acul::shared_ptr<umbf::File>> _libraries;
+        acul::hashmap<acul::string, acul::shared_ptr<umbf::ReadDescriptor>> _libraries;
     };
 
     template <typename T>
@@ -297,6 +297,6 @@ namespace agrb
 
     namespace streams
     {
-        extern AGRB_EXPORT const umbf::streams::Stream shader;
+        extern AGRB_EXPORT const umbf::registry::BlockStream shader;
     } // namespace streams
 } // namespace agrb
