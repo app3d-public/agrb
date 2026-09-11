@@ -168,7 +168,7 @@ namespace agrb
         create_info.pAttachments->image_count = new_images.size();
         create_info.pAttachments->images = acul::alloc_n<fb_image_slot>(new_images.size());
         auto *images = create_info.pAttachments->images;
-        for (int i = 0; i < new_images.size(); ++i)
+        for (size_t i = 0; i < new_images.size(); ++i)
         {
             images[i].attachments.resize(create_info.pAttachments->attachment_count);
             images[i].attachments.front().image = new_images[i];
@@ -181,7 +181,7 @@ namespace agrb
     {
         assert(fb->attachments);
         auto &fb_attachments = *fb->attachments;
-        for (int i = 0; i < fb_attachments.image_count; ++i)
+        for (u32 i = 0; i < fb_attachments.image_count; ++i)
         {
             fb_image_slot &image = fb_attachments.images[i];
             vk::ImageView attachments[fb_attachments.attachment_count];

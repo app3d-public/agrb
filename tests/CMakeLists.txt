@@ -51,11 +51,18 @@ if(NOT TEST_SHADER_CMD_FILES)
 endif()
 
 set(TEST_SHADER_SPV_FILES)
+if(WIN32)
+    set(TEST_SHADER_COMMAND cmd /c)
+    set(TEST_S2U_PATH "$<TARGET_FILE_DIR:agrb_s2u>;$<TARGET_FILE_DIR:agrb>;$ENV{PATH}")
+else()
+    set(TEST_SHADER_COMMAND sh)
+    set(TEST_S2U_PATH "$ENV{PATH}")
+endif()
 foreach(TEST_SHADER_CMD_FILE IN LISTS TEST_SHADER_CMD_FILES)
     string(REGEX REPLACE "\\.cmd$" "" TEST_SHADER_SPV_FILE "${TEST_SHADER_CMD_FILE}")
     add_custom_command(
         OUTPUT ${TEST_SHADER_SPV_FILE}
-        COMMAND cmd /c "${TEST_SHADER_CMD_FILE}"
+        COMMAND ${TEST_SHADER_COMMAND} "${TEST_SHADER_CMD_FILE}"
         DEPENDS ${TEST_SHADER_CMD_FILE} ${TEST_SHADER_DEPFILE}
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         COMMENT "Compiling shader ${TEST_SHADER_SPV_FILE}"
@@ -66,8 +73,7 @@ endforeach()
 
 add_custom_command(
     OUTPUT ${TEST_SHADER_UMLIB}
-    COMMAND "${CMAKE_COMMAND}" -E env
-            "PATH=$<TARGET_FILE_DIR:agrb_s2u>;$<TARGET_FILE_DIR:agrb>;$ENV{PATH}"
+    COMMAND "${CMAKE_COMMAND}" -E env "PATH=${TEST_S2U_PATH}"
             "$<TARGET_FILE:agrb_s2u>"
             --input ${TEST_SHADER_NAMESPACE_DIR}
             --output ${TEST_SHADER_UMLIB}

@@ -48,6 +48,7 @@ namespace agrb
     {
         if (!attachments) return;
         for (u32 i = 0; i < attachments->image_count; i++) destroy_fb_image_slot(attachments->images[i], dev);
+        acul::release(attachments->images, attachments->image_count);
         acul::release(attachments);
     }
 
