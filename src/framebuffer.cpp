@@ -126,10 +126,13 @@ namespace agrb
         vk::SurfaceFormatKHR surface_format = choose_swapchain_surface_format(swapchain_support.formats);
         vk::PresentModeKHR present_mode = choose_swapchain_present_mode(swapchain_support.present_modes);
         vk::Extent2D extent = choose_swapchain_extent(swapchain_support.capabilities, create_info.pAttachments->extent);
+        vk::SwapchainPresentModesCreateInfoKHR present_modes_info;
+        const bool maintenance_enabled = has_swapchain_maintenance1(dev);
+        if (maintenance_enabled) present_modes_info.setPresentModeCount(1).setPPresentModes(&present_mode);
         vk::SwapchainPresentScalingCreateInfoKHR scaling_info;
         const bool present_scaling_applied =
             try_enable_present_scaling(dev, create_info, present_mode, scaling_info, extent);
-        if (present_scaling_applied) scaling_info.setPNext(nullptr);
+        if (present_scaling_applied) scaling_info.setPNext(maintenance_enabled ? &present_modes_info : nullptr);
 
         u32 image_count = swapchain_support.capabilities.minImageCount + 1;
         if (swapchain_support.capabilities.maxImageCount > 0 &&
@@ -162,6 +165,7 @@ namespace agrb
             .setClipped(true)
             .setOldSwapchain(create_info.old_swapchain);
         if (present_scaling_applied) khr_create_info.setPNext(&scaling_info);
+        else if (maintenance_enabled) khr_create_info.setPNext(&present_modes_info);
 
         *create_info.pSwapchain = dev.vk_device.createSwapchainKHR(khr_create_info, nullptr, dev.loader);
         auto new_images = dev.vk_device.getSwapchainImagesKHR(*create_info.pSwapchain, dev.loader);
