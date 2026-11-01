@@ -241,19 +241,34 @@ namespace agrb
          */
         bool allocate_pipelines(device &device, size_t size)
         {
-            vk::Pipeline pipelines[size];
-            create_info create_info[size];
+            if (size > UINT32_MAX || size > artifacts.size()) return false;
+            if (size == 0) return true;
+            acul::vector<vk::Pipeline> pipelines(size);
+            acul::vector<create_info> create_infos(size);
             auto it = artifacts.begin();
-            for (size_t i = 0; i < size; i++, ++it) create_info[i] = it->create_info;
+            for (size_t i = 0; i < size; i++, ++it)
+            {
+                if constexpr (std::is_same<T, vk::GraphicsPipelineCreateInfo>::value)
+                {
+                    if (!it->create_info.stageCount || !it->create_info.pStages) return false;
+                }
+                else if (!it->create_info.stage.module || !it->create_info.stage.pName) return false;
+                create_infos[i] = it->create_info;
+            }
 
             vk::Result res;
             if constexpr (std::is_same<T, vk::GraphicsPipelineCreateInfo>::value)
-                res = device.vk_device.createGraphicsPipelines(cache, size, create_info, nullptr, pipelines,
+                res = device.vk_device.createGraphicsPipelines(cache, static_cast<u32>(size), create_infos.data(), nullptr, pipelines.data(),
                                                                device.loader);
             else
-                res = device.vk_device.createComputePipelines(cache, size, create_info, nullptr, pipelines,
+                res = device.vk_device.createComputePipelines(cache, static_cast<u32>(size), create_infos.data(), nullptr, pipelines.data(),
                                                               device.loader);
-            if (res != vk::Result::eSuccess) return false;
+            if (res != vk::Result::eSuccess)
+            {
+                for (auto pipeline : pipelines)
+                    if (pipeline) device.vk_device.destroyPipeline(pipeline, nullptr, device.loader);
+                return false;
+            }
 
             it = artifacts.begin();
             for (size_t i = 0; i < size; i++, ++it)

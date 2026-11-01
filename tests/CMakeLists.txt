@@ -90,6 +90,7 @@ add_test_files(agrb dynamic_buffer dynamic_buffer.cpp)
 add_test_files(agrb descriptors descriptors.cpp)
 add_test_files(agrb utils utils.cpp)
 add_test_files(agrb pipeline pipeline.cpp)
+add_test_files(agrb pipeline_safety pipeline_safety.cpp)
 add_test_files(agrb vector vector.cpp)
 add_dependencies(agrb_pipeline SHADERS)
 
