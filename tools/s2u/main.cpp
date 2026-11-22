@@ -73,8 +73,8 @@ namespace
 
     bool collect_entries(const acul::string &input_dir, acul::vector<shader_entry> &entries)
     {
-        acul::vector<acul::string> files;
-        auto lr = acul::fs::list_files(input_dir, files, false);
+        auto files = acul::fs::list_files(input_dir);
+        const auto &lr = files.result();
         if (!lr.success())
         {
             std::fprintf(stderr, "Failed to list files in '%s' (error=0x%016llx)\n", input_dir.c_str(),
